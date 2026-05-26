@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createCipheriv, randomBytes } from 'crypto'
+import { createCipheriv } from 'crypto'
 
 const corsHeaders = {
   'Content-Type': 'application/json',
 }
 
 /**
- * Generates a ZegoCloud Token04 using AES-128-CBC (matches official SDK).
+ * Generates a ZegoCloud Token04 — byte-for-byte igual ao da edge function
+ * generate-zego-token (que funciona no client). Layout:
+ *   [0,0,0,0](4) + expire_be32(4) + iv_len(2) + iv(16) + enc_len(2) + enc(N)
+ * IV é uma string de 16 dígitos (ASCII) e a chave AES é o server secret INTEIRO
+ * (secret de 32 chars -> AES-256-CBC), não truncado.
  */
 function generateToken04(
   appId: number,
@@ -15,41 +19,44 @@ function generateToken04(
   userId: string,
   effectiveTimeInSeconds = 7200
 ): string {
-  const createTime = Math.floor(Date.now() / 1000)
-  const expireTime = createTime + effectiveTimeInSeconds
-  const nonce = randomBytes(4).readUInt32BE(0)
+  const now = Math.floor(Date.now() / 1000)
+  const expire = now + effectiveTimeInSeconds
 
   const payload = JSON.stringify({
     app_id: appId,
     user_id: userId,
-    nonce,
-    ctime: createTime,
-    expire: expireTime,
-    payload: '',
+    nonce: (2147483647 * Math.random()) | 0,
+    ctime: now,
+    expire,
   })
 
-  const iv = randomBytes(16)
+  // IV: string de 16 dígitos (igual ao SDK / edge function)
+  let ivStr = Math.random().toString().substring(2, 18)
+  if (ivStr.length < 16) ivStr += ivStr.substring(0, 16 - ivStr.length)
+  const iv = Buffer.from(ivStr, 'utf8') // 16 bytes ASCII
 
-  // AES-128-CBC: use first 16 bytes of the secret (UTF-8)
-  const key = Buffer.alloc(16)
-  Buffer.from(serverSecret, 'utf8').copy(key, 0, 0, 16)
+  // Chave = server secret inteiro. 32 chars -> AES-256, 24 -> 192, senão 128.
+  const key = Buffer.from(serverSecret, 'utf8')
+  const algo =
+    key.length === 32 ? 'aes-256-cbc' : key.length === 24 ? 'aes-192-cbc' : 'aes-128-cbc'
 
-  const cipher = createCipheriv('aes-128-cbc', key, iv)
+  const cipher = createCipheriv(algo, key, iv)
   const encrypted = Buffer.concat([cipher.update(payload, 'utf8'), cipher.final()])
 
-  // Binary: expireTime(8) + ivLen(2) + iv(16) + encLen(2) + encrypted
-  const buf = Buffer.alloc(8 + 2 + iv.length + 2 + encrypted.length)
-  buf.writeBigInt64BE(BigInt(expireTime), 0)
+  const buf = Buffer.alloc(28 + encrypted.length)
+  // bytes 0-3: zeros (já zerados pelo alloc)
+  buf.writeInt32BE(expire, 4)
   buf.writeUInt16BE(iv.length, 8)
   iv.copy(buf, 10)
-  buf.writeUInt16BE(encrypted.length, 10 + iv.length)
-  encrypted.copy(buf, 12 + iv.length)
+  buf.writeUInt16BE(encrypted.length, 26)
+  encrypted.copy(buf, 28)
 
   return '04' + buf.toString('base64')
 }
 
 /**
- * Wraps a Token04 into a Kit Token that ZegoUIKitPrebuilt.create() accepts.
+ * Wraps a Token04 into a Kit Token que ZegoUIKitPrebuilt.create() aceita.
+ * Formato: token04 + "#" + base64({ appID, userID, userName, roomID }).
  */
 function buildKitToken(
   token04: string,
@@ -58,16 +65,13 @@ function buildKitToken(
   userID: string,
   userName: string
 ): string {
-  return Buffer.from(
-    JSON.stringify({
-      ver: 1,
-      token: token04,
-      app_id: appId,
-      user_id: userID,
-      user_name: userName,
-      room_id: roomID,
-    })
-  ).toString('base64')
+  const payload = {
+    appID: appId,
+    userID,
+    userName: encodeURIComponent(userName),
+    roomID,
+  }
+  return token04 + '#' + Buffer.from(JSON.stringify(payload)).toString('base64')
 }
 
 export async function POST(request: NextRequest) {
@@ -102,8 +106,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 3.1. Autorização contra a call: roomID === call.id
-    const { data: callRow, error: callErr } = await supabase
+    // 3.1. Autorização: roomID pode ser uma videochamada (one_on_one_calls) OU
+    // uma live (live_streams). Esta rota é usada pelo creator — em call ele é
+    // participante; em live ele é o host (dono).
+    const { data: callRow } = await supabase
       .from('one_on_one_calls')
       .select(
         'id, creator_id, user_id, status, paid_at, scheduled_start_time, scheduled_duration_minutes'
@@ -111,46 +117,58 @@ export async function POST(request: NextRequest) {
       .eq('id', roomID)
       .maybeSingle()
 
-    if (callErr || !callRow) {
-      return NextResponse.json(
-        { error: 'Videochamada não encontrada' },
-        { status: 403, headers: corsHeaders }
-      )
-    }
-
-    if (userID !== callRow.user_id && userID !== callRow.creator_id) {
-      return NextResponse.json(
-        { error: 'Você não participa desta videochamada' },
-        { status: 403, headers: corsHeaders }
-      )
-    }
-
-    if (callRow.status !== 'paid' && callRow.status !== 'confirmed') {
-      return NextResponse.json(
-        { error: `Videochamada não liberada (status=${callRow.status})` },
-        { status: 403, headers: corsHeaders }
-      )
-    }
-
-    const POST_PAID_WINDOW_MS = 2 * 60 * 60 * 1000
-    const LEGACY_GRACE_MS = 5 * 60 * 1000
-    const now = Date.now()
-
-    if (callRow.status === 'paid') {
-      const paidAt = callRow.paid_at ? new Date(callRow.paid_at).getTime() : NaN
-      if (!isFinite(paidAt) || now > paidAt + POST_PAID_WINDOW_MS) {
+    if (callRow) {
+      if (userID !== callRow.user_id && userID !== callRow.creator_id) {
         return NextResponse.json(
-          { error: 'Janela de entrada expirada' },
+          { error: 'Você não participa desta videochamada' },
           { status: 403, headers: corsHeaders }
         )
       }
-    } else if (callRow.status === 'confirmed' && callRow.scheduled_start_time) {
-      const start = new Date(callRow.scheduled_start_time).getTime()
-      const end =
-        start + (callRow.scheduled_duration_minutes ?? 30) * 60 * 1000
-      if (now > end + LEGACY_GRACE_MS) {
+      if (callRow.status !== 'paid' && callRow.status !== 'confirmed') {
         return NextResponse.json(
-          { error: 'Videochamada já encerrada' },
+          { error: `Videochamada não liberada (status=${callRow.status})` },
+          { status: 403, headers: corsHeaders }
+        )
+      }
+      const POST_PAID_WINDOW_MS = 2 * 60 * 60 * 1000
+      const LEGACY_GRACE_MS = 5 * 60 * 1000
+      const now = Date.now()
+      if (callRow.status === 'paid') {
+        const paidAt = callRow.paid_at ? new Date(callRow.paid_at).getTime() : NaN
+        if (!isFinite(paidAt) || now > paidAt + POST_PAID_WINDOW_MS) {
+          return NextResponse.json(
+            { error: 'Janela de entrada expirada' },
+            { status: 403, headers: corsHeaders }
+          )
+        }
+      } else if (callRow.status === 'confirmed' && callRow.scheduled_start_time) {
+        const start = new Date(callRow.scheduled_start_time).getTime()
+        const end =
+          start + (callRow.scheduled_duration_minutes ?? 30) * 60 * 1000
+        if (now > end + LEGACY_GRACE_MS) {
+          return NextResponse.json(
+            { error: 'Videochamada já encerrada' },
+            { status: 403, headers: corsHeaders }
+          )
+        }
+      }
+    } else {
+      // Live: o creator só pode hostear a própria live.
+      const { data: liveRow } = await supabase
+        .from('live_streams')
+        .select('id, creator_id, status')
+        .eq('id', roomID)
+        .maybeSingle()
+
+      if (!liveRow) {
+        return NextResponse.json(
+          { error: 'Sala não encontrada' },
+          { status: 403, headers: corsHeaders }
+        )
+      }
+      if (liveRow.creator_id !== userID) {
+        return NextResponse.json(
+          { error: 'Você não é o host desta live' },
           { status: 403, headers: corsHeaders }
         )
       }

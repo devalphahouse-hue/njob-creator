@@ -7,15 +7,21 @@ const HEARTBEAT_INTERVAL_MS = 60_000
 
 /**
  * Mantém presença do creator via Supabase Realtime Presence.
- * Quando a aba fecha ou perde conexão, o canal emite leave → o hook
- * marca creator_presence.online=false, source='presence'.
  *
- * Também faz heartbeat a cada 60s atualizando last_heartbeat_at.
- * Só roda enquanto `isOnline` for true — se o creator desligou manualmente
- * não faz sentido manter presence ligada.
+ * IMPORTANTE: o desligamento de online (creator_presence.online=false) NÃO é
+ * feito no cleanup do useEffect. Em dev o React Strict Mode faz
+ * setup→cleanup→setup na montagem, e o Fast Refresh remonta a cada save —
+ * ambos disparariam o cleanup e marcariam o creator offline por engano
+ * (era o bug "online não reflete no client"). Por isso o offline só é gravado
+ * no fechamento REAL da aba (pagehide/beforeunload), que não é disparado por
+ * Strict Mode nem Fast Refresh. Os caminhos explícitos de offline (toggle
+ * manual, logout e idle de 15min) seguem gravando normalmente em outros pontos.
+ *
+ * Faz heartbeat a cada 60s atualizando last_heartbeat_at.
+ * Só roda enquanto `isOnline` for true.
  */
 export function useCreatorPresence(userId: string | null | undefined, isOnline: boolean) {
-  const leaveGuardRef = useRef(false)
+  const offlineGuardRef = useRef(false)
 
   useEffect(() => {
     if (!userId || !isOnline) return
@@ -25,7 +31,7 @@ export function useCreatorPresence(userId: string | null | undefined, isOnline: 
       config: { presence: { key: userId } },
     })
 
-    leaveGuardRef.current = false
+    offlineGuardRef.current = false
 
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -46,17 +52,11 @@ export function useCreatorPresence(userId: string | null | undefined, isOnline: 
         .then(() => {})
     }, HEARTBEAT_INTERVAL_MS)
 
-    const cleanup = async () => {
-      if (leaveGuardRef.current) return
-      leaveGuardRef.current = true
-      try {
-        await channel.untrack()
-      } catch {}
-      try {
-        await supabase.removeChannel(channel)
-      } catch {}
+    // Grava offline — APENAS no fechamento real da aba. Best-effort.
+    const writeOffline = async () => {
+      if (offlineGuardRef.current) return
+      offlineGuardRef.current = true
       const nowIso = new Date().toISOString()
-      // Ao desmontar (fechar aba / navegar fora), desliga o status online.
       await supabase
         .from('creator_presence')
         .upsert(
@@ -75,17 +75,21 @@ export function useCreatorPresence(userId: string | null | undefined, isOnline: 
         .eq('id', userId)
     }
 
-    const handleBeforeUnload = () => {
-      // best-effort: beforeunload não aguarda await.
-      void cleanup()
+    const handleUnload = () => {
+      void writeOffline()
     }
 
-    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('pagehide', handleUnload)
+    window.addEventListener('beforeunload', handleUnload)
 
+    // Cleanup do React (unmount, troca de deps, Strict Mode, Fast Refresh):
+    // libera o canal e o heartbeat, mas NÃO marca offline.
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('pagehide', handleUnload)
+      window.removeEventListener('beforeunload', handleUnload)
       clearInterval(heartbeat)
-      void cleanup()
+      void channel.untrack().catch(() => {})
+      void supabase.removeChannel(channel).catch(() => {})
     }
   }, [userId, isOnline])
 }

@@ -5,40 +5,10 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useCreator } from '@/lib/store/app-store'
 import { useTranslation } from '@/lib/i18n'
+import { toast } from 'sonner'
+import { observeZegoTranslation } from '@/lib/zego-i18n'
 
 type Status = 'loading' | 'error' | 'not-owner' | 'joined'
-
-/** Mapa de traduções dos textos do ZegoCloud UIKit por idioma */
-const ZEGO_TRANSLATIONS: Record<string, Record<string, string>> = {
-  pt: {
-    'Go Live': 'Iniciar Live',
-    'End': 'Encerrar',
-    'Leave': 'Sair',
-    'Leave Room': 'Sair da Sala',
-    'Cancel': 'Cancelar',
-    'OK': 'OK',
-    'Settings': 'Configurações',
-    'Camera': 'Câmera',
-    'Microphone': 'Microfone',
-    'The host has left the room': 'O apresentador saiu da sala',
-    'You are the host': 'Você é o apresentador',
-    'No one else is here': 'Ninguém mais está aqui',
-  },
-  es: {
-    'Go Live': 'Iniciar Live',
-    'End': 'Finalizar',
-    'Leave': 'Salir',
-    'Leave Room': 'Salir de la Sala',
-    'Cancel': 'Cancelar',
-    'OK': 'OK',
-    'Settings': 'Configuración',
-    'Camera': 'Cámara',
-    'Microphone': 'Micrófono',
-    'The host has left the room': 'El presentador ha salido de la sala',
-    'You are the host': 'Eres el presentador',
-    'No one else is here': 'No hay nadie más aquí',
-  },
-}
 
 export default function LiveHostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -50,39 +20,47 @@ export default function LiveHostPage({ params }: { params: Promise<{ id: string 
 
   const containerRef = useRef<HTMLDivElement>(null)
   const zegoRef = useRef<unknown>(null)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const endedRef = useRef(false)
+  const isLiveRef = useRef(false)
   const [status, setStatus] = useState<Status>('loading')
 
-  // Traduz textos do ZegoCloud UIKit (SDK só suporta en/zh)
+  // Traduz a UI do ZegoCloud UIKit (SDK só vem em en/zh). isLiveRef faz o botão
+  // "Iniciar Live" virar "Finalizar" enquanto a transmissão está no ar.
   useEffect(() => {
-    if (!containerRef.current || locale === 'en') return
-    const dict = ZEGO_TRANSLATIONS[locale]
-    if (!dict) return
-
-    const translateNode = () => {
-      const els = containerRef.current?.querySelectorAll('button, [role="button"], div, span, p')
-      els?.forEach((el) => {
-        // Só traduz nós-folha (sem filhos com texto)
-        if (el.children.length > 0) return
-        const text = el.textContent?.trim()
-        if (text && dict[text]) {
-          el.textContent = dict[text]
-        }
-      })
-    }
-
-    const observer = new MutationObserver(translateNode)
-    observer.observe(containerRef.current, { childList: true, subtree: true, characterData: true })
-
-    // Traduz o que já estiver renderizado
-    translateNode()
-
-    return () => observer.disconnect()
+    if (!containerRef.current) return
+    return observeZegoTranslation(containerRef.current, locale, isLiveRef)
   }, [locale])
 
   useEffect(() => {
     if (!creator || !id || !containerRef.current) return
 
     let cancelled = false
+    endedRef.current = false
+
+    // Encerra a live quando a duração comprada acaba. Idempotente.
+    const endLive = () => {
+      if (endedRef.current) return
+      endedRef.current = true
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+      void supabase
+        .from('live_streams')
+        .update({ status: 'finished', actual_end_time: new Date().toISOString() })
+        .eq('id', id)
+      if (zegoRef.current) {
+        try {
+          (zegoRef.current as { destroy: () => void }).destroy()
+        } catch {
+          /* noop */
+        }
+        zegoRef.current = null
+      }
+      toast.info('Tempo da live encerrado.')
+      router.push('/home')
+    }
 
     async function initLive() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -95,7 +73,7 @@ export default function LiveHostPage({ params }: { params: Promise<{ id: string 
       // Valida que o creator é dono do evento
       const { data: live } = await supabase
         .from('live_streams')
-        .select('id, creator_id')
+        .select('id, creator_id, estimated_duration_minutes')
         .eq('id', id)
         .single()
 
@@ -136,10 +114,35 @@ export default function LiveHostPage({ params }: { params: Promise<{ id: string 
         showRoomTimer: true,
         turnOnCameraWhenJoining: true,
         turnOnMicrophoneWhenJoining: true,
+        onLiveStart: () => {
+          isLiveRef.current = true
+        },
+        onLiveEnd: () => {
+          isLiveRef.current = false
+        },
         onLeaveRoom: () => {
           router.push('/home')
         },
       })
+
+      // Marca o início real da live (host) via RPC e arma o timer de
+      // encerramento em actual_start_time + duração estimada (30/60 min).
+      const { data: startedIso } = await supabase.rpc('fn_mark_live_started', {
+        p_live_stream_id: id,
+      })
+      const startMs = startedIso ? new Date(startedIso as string).getTime() : Date.now()
+      const durationMin = live.estimated_duration_minutes ?? 60
+      const endAt = startMs + durationMin * 60_000
+
+      let warned = false
+      timerRef.current = setInterval(() => {
+        const remaining = endAt - Date.now()
+        if (remaining <= 60_000 && remaining > 0 && !warned) {
+          warned = true
+          toast.warning('A live encerra em 1 minuto.')
+        }
+        if (remaining <= 0) endLive()
+      }, 1000)
 
       setStatus('joined')
     }
@@ -151,6 +154,10 @@ export default function LiveHostPage({ params }: { params: Promise<{ id: string 
 
     return () => {
       cancelled = true
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
       if (zegoRef.current) {
         (zegoRef.current as { destroy: () => void }).destroy()
         zegoRef.current = null

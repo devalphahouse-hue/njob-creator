@@ -1835,6 +1835,8 @@ export type Database = {
         Returns: Database["public"]["Tables"]["one_on_one_calls"]["Row"]
       }
       fn_expire_pending_calls: { Args: never; Returns: number }
+      fn_mark_call_started: { Args: { p_call_id: string }; Returns: string }
+      fn_mark_live_started: { Args: { p_live_stream_id: string }; Returns: string }
       create_pack_with_items: { Args: { p_payload: Json }; Returns: Json }
       get_available_coupons: { Args: never; Returns: Json }
       get_client_info: { Args: { p_profile_id: string }; Returns: Json }

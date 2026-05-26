@@ -30,7 +30,10 @@ const nextConfig: NextConfig = {
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://*.supabase.co https://*.stripe.com",
               "media-src 'self' blob: https://*.supabase.co",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.stripe.com https://*.zegocloud.com https://*.zego.im wss://*.zego.im https://*.sentry.io https://*.ingest.sentry.io https://viacep.com.br",
+              // wss: (qualquer WebSocket seguro) é necessário porque o ZegoCloud
+              // conecta os servidores de mídia em endpoints dinâmicos (IPs/subdomínios
+              // fora de *.zego.im) via WebSocket. Os destinos https seguem restritos.
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.stripe.com https://*.zegocloud.com wss://*.zegocloud.com https://*.zego.im wss://*.zego.im wss: https://*.sentry.io https://*.ingest.sentry.io https://viacep.com.br",
               "frame-src 'self' https://*.stripe.com https://*.zegocloud.com",
               "worker-src 'self' blob:",
             ].join('; '),

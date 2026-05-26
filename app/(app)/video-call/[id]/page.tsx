@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useCreator } from '@/lib/store/app-store'
 import { useTranslation } from '@/lib/i18n'
+import { toast } from 'sonner'
+import { observeZegoTranslation } from '@/lib/zego-i18n'
 
 type Status = 'loading' | 'error' | 'joined'
 
@@ -14,16 +16,49 @@ export default function VideoCallPage({ params }: { params: Promise<{ id: string
   const supabase = createClient()
   const creator = useCreator()
 
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
 
   const containerRef = useRef<HTMLDivElement>(null)
   const zegoRef = useRef<unknown>(null)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const endedRef = useRef(false)
   const [status, setStatus] = useState<Status>('loading')
+
+  // Traduz a UI do ZegoCloud UIKit (SDK só vem em en/zh).
+  useEffect(() => {
+    if (!containerRef.current) return
+    return observeZegoTranslation(containerRef.current, locale)
+  }, [locale])
 
   useEffect(() => {
     if (!creator || !id || !containerRef.current) return
 
     let cancelled = false
+    endedRef.current = false
+
+    // Encerra a sala quando a duração comprada acaba. Idempotente.
+    const endCall = () => {
+      if (endedRef.current) return
+      endedRef.current = true
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+      void supabase
+        .from('one_on_one_calls')
+        .update({ status: 'completed', actual_end_time: new Date().toISOString() })
+        .eq('id', id)
+      if (zegoRef.current) {
+        try {
+          (zegoRef.current as { destroy: () => void }).destroy()
+        } catch {
+          /* noop */
+        }
+        zegoRef.current = null
+      }
+      toast.info('Tempo da videochamada encerrado.')
+      router.push('/home')
+    }
 
     async function initCall() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -116,12 +151,24 @@ export default function VideoCallPage({ params }: { params: Promise<{ id: string
         },
       })
 
-      // Marca início real (idempotente: só grava se actual_start_time for null)
-      void supabase
-        .from('one_on_one_calls')
-        .update({ actual_start_time: new Date().toISOString() })
-        .eq('id', id)
-        .is('actual_start_time', null)
+      // Marca/lê o início real via RPC (idempotente, bypassa RLS, retorna o
+      // timestamp canônico de quem entrou primeiro). Fallback p/ agora se falhar.
+      const { data: startedIso } = await supabase.rpc('fn_mark_call_started', {
+        p_call_id: id,
+      })
+      const startMs = startedIso ? new Date(startedIso as string).getTime() : Date.now()
+      const durationMin = call.scheduled_duration_minutes ?? 60
+      const endAt = startMs + durationMin * 60_000
+
+      let warned = false
+      timerRef.current = setInterval(() => {
+        const remaining = endAt - Date.now()
+        if (remaining <= 60_000 && remaining > 0 && !warned) {
+          warned = true
+          toast.warning('A videochamada encerra em 1 minuto.')
+        }
+        if (remaining <= 0) endCall()
+      }, 1000)
 
       setStatus('joined')
     }
@@ -132,6 +179,10 @@ export default function VideoCallPage({ params }: { params: Promise<{ id: string
 
     return () => {
       cancelled = true
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
       if (zegoRef.current) {
         (zegoRef.current as { destroy: () => void }).destroy()
         zegoRef.current = null
