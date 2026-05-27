@@ -21,11 +21,11 @@ export function useLiveStreamCleanup(
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data: affected } = await supabase.rpc('cleanup_expired_live_streams' as never, {
+      const { data: affected } = await supabase.rpc('cleanup_expired_live_streams', {
         p_creator_id: user.id,
-      } as never)
+      })
 
-      if (affected && (affected as number) > 0) {
+      if (affected && affected > 0) {
         refetch()
       }
     })()

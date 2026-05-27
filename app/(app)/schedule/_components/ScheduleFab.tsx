@@ -11,7 +11,6 @@ interface ScheduleFabProps {
   onOpenNovoEvento: () => void
   tNewEvent: string
   tCreateLive: string
-  tManageAvailability?: string
 }
 
 export function ScheduleFab({

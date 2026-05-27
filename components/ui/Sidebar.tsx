@@ -78,6 +78,7 @@ export default function Sidebar() {
 
   const navItems: NavItem[] = [
     { label: t('nav.home'), href: '/home', icon: <HomeIcon /> },
+    { label: t('nav.chat'), href: '/chat', icon: <ChatIcon /> },
     { label: t('nav.content'), href: '/content', icon: <ContentIcon /> },
     { label: t('nav.schedule'), href: '/schedule', icon: <ScheduleIcon /> },
     { label: t('nav.coupons'), href: '/subscriptions', icon: <CouponsIcon /> },

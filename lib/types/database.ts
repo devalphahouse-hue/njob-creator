@@ -66,18 +66,21 @@ export type Database = {
       }
       conversation_participants: {
         Row: {
+          cleared_at: string | null
           conversation_id: string
           joined_at: string
           last_read_at: string | null
           profile_id: string
         }
         Insert: {
+          cleared_at?: string | null
           conversation_id: string
           joined_at?: string
           last_read_at?: string | null
           profile_id: string
         }
         Update: {
+          cleared_at?: string | null
           conversation_id?: string
           joined_at?: string
           last_read_at?: string | null
@@ -1835,6 +1838,8 @@ export type Database = {
         Returns: Database["public"]["Tables"]["one_on_one_calls"]["Row"]
       }
       fn_expire_pending_calls: { Args: never; Returns: number }
+      fn_expire_stale_lives: { Args: never; Returns: number }
+      cleanup_expired_live_streams: { Args: { p_creator_id: string }; Returns: number }
       fn_mark_call_started: { Args: { p_call_id: string }; Returns: string }
       fn_mark_live_started: { Args: { p_live_stream_id: string }; Returns: string }
       create_pack_with_items: { Args: { p_payload: Json }; Returns: Json }
@@ -1871,6 +1876,14 @@ export type Database = {
       }
       get_profile_info: { Args: { p_profile_id: string }; Returns: Json }
       get_user_purchases_json: { Args: { p_user_id: string }; Returns: Json }
+      get_or_create_direct_conversation: {
+        Args: { p_peer_id: string }
+        Returns: string
+      }
+      clear_conversation: {
+        Args: { p_conversation_id: string }
+        Returns: undefined
+      }
       list_creator_conversations: {
         Args: { p_creator_id: string }
         Returns: Json

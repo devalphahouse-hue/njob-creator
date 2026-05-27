@@ -7,6 +7,11 @@ import { useCreator } from '@/lib/store/app-store'
 import { useTranslation } from '@/lib/i18n'
 import { toast } from 'sonner'
 import { observeZegoTranslation } from '@/lib/zego-i18n'
+import {
+  PAID_CALL_WINDOW_MS,
+  LEGACY_CALL_GRACE_MS,
+  DEFAULT_CALL_DURATION_MIN,
+} from '@/lib/constants/call-windows'
 
 type Status = 'loading' | 'error' | 'joined'
 
@@ -89,20 +94,19 @@ export default function VideoCallPage({ params }: { params: Promise<{ id: string
       }
 
       const now = Date.now()
-      const POST_PAID_WINDOW_MS = 2 * 60 * 60 * 1000
-      const LEGACY_GRACE_MS = 5 * 60 * 1000
 
       if (call.status === 'paid') {
         const paidAt = call.paid_at ? new Date(call.paid_at).getTime() : NaN
-        if (!isFinite(paidAt) || now > paidAt + POST_PAID_WINDOW_MS) {
+        if (!isFinite(paidAt) || now > paidAt + PAID_CALL_WINDOW_MS) {
           setStatus('error')
           return
         }
       } else if (call.status === 'confirmed' && call.scheduled_start_time) {
         const startTime = new Date(call.scheduled_start_time).getTime()
-        const durationMs = (call.scheduled_duration_minutes ?? 60) * 60 * 1000
+        const durationMs =
+          (call.scheduled_duration_minutes ?? DEFAULT_CALL_DURATION_MIN) * 60 * 1000
         const endTime = startTime + durationMs
-        if (now > endTime + LEGACY_GRACE_MS) {
+        if (now > endTime + LEGACY_CALL_GRACE_MS) {
           setStatus('error')
           return
         }
@@ -157,7 +161,7 @@ export default function VideoCallPage({ params }: { params: Promise<{ id: string
         p_call_id: id,
       })
       const startMs = startedIso ? new Date(startedIso as string).getTime() : Date.now()
-      const durationMin = call.scheduled_duration_minutes ?? 60
+      const durationMin = call.scheduled_duration_minutes ?? DEFAULT_CALL_DURATION_MIN
       const endAt = startMs + durationMin * 60_000
 
       let warned = false

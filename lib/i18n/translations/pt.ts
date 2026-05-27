@@ -531,6 +531,11 @@ const pt = {
     noMessages: 'Nenhuma mensagem ainda.',
     messagePlaceholder: 'Mensagem',
     send: 'Enviar',
+    selectConversation: 'Selecione uma conversa para começar',
+    deleteConversation: 'Excluir conversa',
+    deleteConfirm: 'Excluir esta conversa? Ela sairá da sua lista; a outra pessoa continuará com o histórico.',
+    today: 'Hoje',
+    yesterday: 'Ontem',
   },
 
   // ── Subscriptions / Coupons ─────────────────────────────────────────────

@@ -3,12 +3,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/lib/types/database'
+import { PAID_CALL_WINDOW_MS } from '@/lib/constants/call-windows'
 
 export type PaidCall = Database['public']['Tables']['one_on_one_calls']['Row'] & {
   user?: { full_name: string | null; avatar_url: string | null } | null
 }
-
-const PAID_WINDOW_MS = 2 * 60 * 60 * 1000
 
 /**
  * Retorna as chamadas do creator que foram pagas recentemente e cuja janela
@@ -21,7 +20,7 @@ export function usePaidCalls(creatorId: string | null | undefined) {
   const fetchNow = useCallback(async () => {
     if (!creatorId) return
     const supabase = createClient()
-    const cutoffIso = new Date(Date.now() - PAID_WINDOW_MS).toISOString()
+    const cutoffIso = new Date(Date.now() - PAID_CALL_WINDOW_MS).toISOString()
 
     const { data } = await supabase
       .from('one_on_one_calls')

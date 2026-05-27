@@ -59,6 +59,7 @@ export default function Navbar() {
 
   const mobileNav: NavItem[] = [
     { label: t('nav.home'), href: '/home', icon: <HomeIcon /> },
+    { label: t('nav.chat'), href: '/chat', icon: <ChatIcon /> },
     { label: t('nav.content'), href: '/content', icon: <ContentIcon /> },
     { label: t('nav.schedule'), href: '/schedule', icon: <ScheduleIcon /> },
     { label: t('nav.profile'), href: '/profile', icon: <ProfileIcon /> },

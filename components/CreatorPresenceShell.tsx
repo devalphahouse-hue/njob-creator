@@ -7,8 +7,7 @@ import { useCreatorPresence } from '@/lib/hooks/useCreatorPresence'
 import { useIdleTimeout } from '@/lib/hooks/useIdleTimeout'
 import { IncomingCallRequestModal } from '@/components/home/IncomingCallRequestModal'
 import { ActiveCallCTA } from '@/components/home/ActiveCallCTA'
-
-const IDLE_TIMEOUT_MS = 15 * 60 * 1000 // 15 min
+import { IDLE_TIMEOUT_MS } from '@/lib/constants/call-windows'
 
 /**
  * Injeta presença online + auto-offline por inatividade + modal de

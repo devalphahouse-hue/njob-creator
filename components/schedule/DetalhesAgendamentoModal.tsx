@@ -6,6 +6,7 @@ import type { TipoEventoAgenda } from './CardEventoAgenda'
 import { useTranslation, getLocaleBcp47 } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { CALL_ENTRY_BUFFER_MS, DEFAULT_CALL_DURATION_MIN } from '@/lib/constants/call-windows'
 
 interface DetalhesAgendamentoModalProps {
   isOpen: boolean
@@ -165,9 +166,9 @@ export default function DetalhesAgendamentoModal({
     // Legado — confirmed + horário marcado
     if (callStatus === 'confirmed' && scheduledStartTime) {
       const startMs = new Date(scheduledStartTime).getTime()
-      const durationMs = (scheduledDurationMinutes ?? 60) * 60 * 1000
+      const durationMs = (scheduledDurationMinutes ?? DEFAULT_CALL_DURATION_MIN) * 60 * 1000
       const endMs = startMs + durationMs
-      const windowStartMs = startMs - 5 * 60 * 1000
+      const windowStartMs = startMs - CALL_ENTRY_BUFFER_MS
       const now = Date.now()
       const canJoin = now >= windowStartMs && now <= endMs
       const formatted = new Date(scheduledStartTime).toLocaleTimeString(getLocaleBcp47(locale), {

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createCipheriv } from 'crypto'
+import {
+  PAID_CALL_WINDOW_MS,
+  LEGACY_CALL_GRACE_MS,
+  DEFAULT_CALL_DURATION_MIN,
+} from '@/lib/constants/call-windows'
 
 const corsHeaders = {
   'Content-Type': 'application/json',
@@ -130,12 +135,10 @@ export async function POST(request: NextRequest) {
           { status: 403, headers: corsHeaders }
         )
       }
-      const POST_PAID_WINDOW_MS = 2 * 60 * 60 * 1000
-      const LEGACY_GRACE_MS = 5 * 60 * 1000
       const now = Date.now()
       if (callRow.status === 'paid') {
         const paidAt = callRow.paid_at ? new Date(callRow.paid_at).getTime() : NaN
-        if (!isFinite(paidAt) || now > paidAt + POST_PAID_WINDOW_MS) {
+        if (!isFinite(paidAt) || now > paidAt + PAID_CALL_WINDOW_MS) {
           return NextResponse.json(
             { error: 'Janela de entrada expirada' },
             { status: 403, headers: corsHeaders }
@@ -144,8 +147,8 @@ export async function POST(request: NextRequest) {
       } else if (callRow.status === 'confirmed' && callRow.scheduled_start_time) {
         const start = new Date(callRow.scheduled_start_time).getTime()
         const end =
-          start + (callRow.scheduled_duration_minutes ?? 30) * 60 * 1000
-        if (now > end + LEGACY_GRACE_MS) {
+          start + (callRow.scheduled_duration_minutes ?? DEFAULT_CALL_DURATION_MIN) * 60 * 1000
+        if (now > end + LEGACY_CALL_GRACE_MS) {
           return NextResponse.json(
             { error: 'Videochamada já encerrada' },
             { status: 403, headers: corsHeaders }

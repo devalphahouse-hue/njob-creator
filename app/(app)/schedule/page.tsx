@@ -131,10 +131,6 @@ export default function SchedulePage() {
     },
   })
 
-  // Agenda fixa foi descontinuada — slots não são mais populados no novo fluxo.
-  // Retornamos um objeto zero-valued para não quebrar props downstream.
-  const availabilitySlots = undefined
-
   // ── L3: Lazy status cleanup ──────────────────────────────────────────────────
   useLiveStreamCleanup(creator, refetchEventos)
 
@@ -183,13 +179,10 @@ export default function SchedulePage() {
           tDetails={t('schedule.details')}
         />
 
-        {/* AvailabilityBadge removido: agenda fixa depreciada no novo fluxo */}
-
         <EventList
           isLoading={eventosLoading}
           eventos={listaEventos}
           filterType={filterType}
-          availabilitySlots={availabilitySlots}
           callInfoMap={callInfoMap}
           onFilterChange={setFilterType}
           onEventTap={openDetalhes}
@@ -212,7 +205,6 @@ export default function SchedulePage() {
         onOpenNovoEvento={() => setModalNovoOpen(true)}
         tNewEvent={t('events.newEvent')}
         tCreateLive={t('events.createLive')}
-        tManageAvailability={t('events.manageAvailability')}
       />
 
       <NovoEventoModal

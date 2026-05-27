@@ -495,6 +495,11 @@ const en: Translations = {
     noMessages: 'No messages yet.',
     messagePlaceholder: 'Message',
     send: 'Send',
+    selectConversation: 'Select a conversation to start',
+    deleteConversation: 'Delete conversation',
+    deleteConfirm: 'Delete this conversation? It will leave your list; the other person keeps the history.',
+    today: 'Today',
+    yesterday: 'Yesterday',
   },
 
   subscriptions: {

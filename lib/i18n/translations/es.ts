@@ -497,6 +497,11 @@ const es: Translations = {
     noMessages: 'Ningún mensaje aún.',
     messagePlaceholder: 'Mensaje',
     send: 'Enviar',
+    selectConversation: 'Selecciona una conversación para empezar',
+    deleteConversation: 'Eliminar conversación',
+    deleteConfirm: '¿Eliminar esta conversación? Saldrá de tu lista; la otra persona conserva el historial.',
+    today: 'Hoy',
+    yesterday: 'Ayer',
   },
 
   // ── Subscriptions / Coupons ───────────────────────────────────────────

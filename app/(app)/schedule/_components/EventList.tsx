@@ -6,18 +6,10 @@ import type { Database } from '@/lib/types/database'
 
 type VwCreatorEventRow = Database['public']['Views']['vw_creator_events']['Row']
 
-interface AvailabilitySlots {
-  total: number
-  available: number
-  purchased: number
-  past: number
-}
-
 interface EventListProps {
   isLoading: boolean
   eventos: VwCreatorEventRow[]
   filterType: 'all' | 'live' | 'call'
-  availabilitySlots: AvailabilitySlots | undefined
   callInfoMap: Map<string, { status: string; clientName: string }>
   onFilterChange: (filter: 'all' | 'live' | 'call') => void
   onEventTap: (evento: VwCreatorEventRow) => void
@@ -35,7 +27,6 @@ export function EventList({
   isLoading,
   eventos,
   filterType,
-  availabilitySlots,
   callInfoMap,
   onFilterChange,
   onEventTap,
@@ -91,15 +82,9 @@ export function EventList({
         <div className="flex flex-col gap-4">
           {eventos.length === 0 ? (
             <div className="py-6">
-              {filterType === 'call' && availabilitySlots && availabilitySlots.total > 0 ? (
-                <p className="text-[var(--color-muted)] text-[13px] m-0 leading-[1.5]">
-                  {tNoCallsYet}
-                </p>
-              ) : (
-                <p className="text-[var(--color-muted)] text-sm m-0">
-                  {tNoEvents}
-                </p>
-              )}
+              <p className="text-[var(--color-muted)] text-sm m-0">
+                {filterType === 'call' ? tNoCallsYet : tNoEvents}
+              </p>
             </div>
           ) : (
             eventos.map((ev) => {

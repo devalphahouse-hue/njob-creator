@@ -11,6 +11,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      // Agenda fixa descontinuada — a disponibilidade agora é o toggle "Online"
+      // na home. Mantém bookmarks antigos funcionando sem página dedicada.
+      { source: '/schedule/availability', destination: '/schedule', permanent: false },
+    ]
+  },
   async headers() {
     return [
       {
