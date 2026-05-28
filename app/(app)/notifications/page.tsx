@@ -128,6 +128,7 @@ export default function NotificationsPage() {
 
   // Realtime: nova notificação chega na hora (não espera polling 30s).
   useEffect(() => {
+    const supabase = createClient()
     let active = true
     let channelRef: { unsubscribe?: () => unknown } | null = null
     ;(async () => {
@@ -159,7 +160,7 @@ export default function NotificationsPage() {
         void supabase.removeChannel(channelRef as unknown as Parameters<typeof supabase.removeChannel>[0])
       }
     }
-  }, [supabase, queryClient])
+  }, [queryClient])
 
   return (
     <div className="flex flex-col min-h-full bg-[var(--color-background)]">

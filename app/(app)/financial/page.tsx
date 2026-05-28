@@ -74,14 +74,14 @@ function StatementSummary({ statement }: { statement: StatementShape }) {
   )
 }
 
-async function getStatement(year: number, month: number, token: string): Promise<Record<string, unknown>> {
+async function getStatement(year: number, month: number, token: string): Promise<StatementShape> {
   const res = await fetch(`${base()}/functions/v1/get-creator-financial-statement`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ year, month }),
   })
   if (!res.ok) throw new Error(await res.text())
-  return res.json()
+  return res.json() as Promise<StatementShape>
 }
 
 async function getPayoutLink(token: string): Promise<{ url?: string; error?: string }> {
@@ -282,7 +282,7 @@ export default function FinancialPage() {
           {statementLoading ? (
             <div className="p-6 text-center text-[var(--color-muted)]">{t('common.loading')}</div>
           ) : statement ? (
-            <StatementSummary statement={statement as StatementShape} />
+            <StatementSummary statement={statement} />
           ) : (
             <EmptyState title={t('financial.noTransactions')} description={t('financial.period')} />
           )}
