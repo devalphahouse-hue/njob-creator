@@ -11,6 +11,69 @@ import { useTranslation } from '@/lib/i18n'
 
 const base = () => process.env.NEXT_PUBLIC_SUPABASE_URL!
 
+// Shape do JSON devolvido por get-creator-financial-statement.
+interface StatementShape {
+  year: number
+  month: number
+  revenue_breakdown: {
+    content_revenue: number
+    live_revenue: number
+    call_revenue: number
+    subscription_revenue: number
+  }
+  total_revenue: number
+  available_for_payout: number
+  future_payouts: number
+  completed_payouts: number
+  transactions: { packs: number; lives: number; calls: number }
+}
+
+function formatBRL(v: number | null | undefined): string {
+  return `R$ ${(Number(v ?? 0)).toFixed(2).replace('.', ',')}`
+}
+
+function StatementCard({ label, value, helper }: { label: string; value: string; helper?: string }) {
+  return (
+    <div className="p-4 bg-[var(--color-surface-2)] rounded-lg">
+      <div className="text-xs text-[var(--color-muted)] mb-1">{label}</div>
+      <div className="text-lg font-bold text-[var(--color-foreground)]">{value}</div>
+      {helper && <div className="text-[11px] text-[var(--color-muted)] mt-1">{helper}</div>}
+    </div>
+  )
+}
+
+function StatementSummary({ statement }: { statement: StatementShape }) {
+  const rb = statement.revenue_breakdown
+  const tx = statement.transactions
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-3">
+        <StatementCard label="Receita total no período" value={formatBRL(statement.total_revenue)} />
+        <StatementCard label="Disponível para saque" value={formatBRL(statement.available_for_payout)} />
+        <StatementCard label="Repasses programados" value={formatBRL(statement.future_payouts)} />
+        <StatementCard label="Repasses concluídos" value={formatBRL(statement.completed_payouts)} />
+      </div>
+      <div className="p-4 bg-[var(--color-surface-2)] rounded-lg">
+        <div className="text-xs text-[var(--color-muted)] font-semibold mb-2">Receita por origem</div>
+        <div className="flex flex-col gap-1.5 text-sm text-[var(--color-foreground)]">
+          <div className="flex justify-between"><span>Conteúdo (packs)</span><span>{formatBRL(rb.content_revenue)}</span></div>
+          <div className="flex justify-between"><span>Lives</span><span>{formatBRL(rb.live_revenue)}</span></div>
+          <div className="flex justify-between"><span>Videochamadas</span><span>{formatBRL(rb.call_revenue)}</span></div>
+          <div className="flex justify-between"><span>Assinaturas</span><span>{formatBRL(rb.subscription_revenue)}</span></div>
+        </div>
+      </div>
+      <div className="p-4 bg-[var(--color-surface-2)] rounded-lg">
+        <div className="text-xs text-[var(--color-muted)] font-semibold mb-2">Transações no período</div>
+        <div className="flex flex-col gap-1.5 text-sm text-[var(--color-foreground)]">
+          <div className="flex justify-between"><span>Packs vendidos</span><span>{tx.packs}</span></div>
+          <div className="flex justify-between"><span>Ingressos de live</span><span>{tx.lives}</span></div>
+          <div className="flex justify-between"><span>Videochamadas</span><span>{tx.calls}</span></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 async function getStatement(year: number, month: number, token: string): Promise<Record<string, unknown>> {
   const res = await fetch(`${base()}/functions/v1/get-creator-financial-statement`, {
     method: 'POST',
@@ -193,42 +256,50 @@ export default function FinancialPage() {
                 />
               </label>
             </div>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                value={month}
-                onChange={(e) => setMonth(Number(e.target.value) || 1)}
-                min={1}
-                max={12}
-                className="w-[60px] p-2 rounded-lg border border-[var(--color-border)]"
-                title={t('schedule.minutes')}
-              />
-              <input
-                type="number"
-                value={year}
-                onChange={(e) => setYear(Number(e.target.value) || new Date().getFullYear())}
-                className="w-20 p-2 rounded-lg border border-[var(--color-border)]"
-                title={t('financial.period')}
-              />
-              <span className="text-xs text-[var(--color-muted)] self-center">{t('schedule.minutes')}/{t('financial.period')}</span>
+            <div className="flex gap-2 items-end">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-[var(--color-muted)]">Mês</span>
+                <input
+                  type="number"
+                  value={month}
+                  onChange={(e) => setMonth(Number(e.target.value) || 1)}
+                  min={1}
+                  max={12}
+                  className="w-[70px] p-2 rounded-lg border border-[var(--color-border)]"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-[var(--color-muted)]">Ano</span>
+                <input
+                  type="number"
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value) || new Date().getFullYear())}
+                  className="w-24 p-2 rounded-lg border border-[var(--color-border)]"
+                />
+              </label>
             </div>
           </div>
           {statementLoading ? (
             <div className="p-6 text-center text-[var(--color-muted)]">{t('common.loading')}</div>
           ) : statement ? (
-            <pre className="p-4 bg-[var(--color-surface-2)] rounded-lg overflow-auto text-xs">
-              {JSON.stringify(statement, null, 2)}
-            </pre>
+            <StatementSummary statement={statement as StatementShape} />
           ) : (
             <EmptyState title={t('financial.noTransactions')} description={t('financial.period')} />
           )}
         </>
       )}
       {tab === 2 && (
-        <div>
-          <p className="mb-4 text-[var(--color-muted)] text-sm">
-            {t('financial.withdraw')}
-          </p>
+        <div className="flex flex-col gap-4">
+          <div className="p-4 bg-[var(--color-surface-2)] rounded-lg">
+            <p className="text-sm text-[var(--color-foreground)] mb-2 font-semibold">
+              Como funcionam os repasses
+            </p>
+            <p className="text-xs text-[var(--color-muted)] leading-relaxed">
+              Os saques são processados diretamente pelo Stripe, parceiro de pagamentos
+              da plataforma. Clique abaixo para abrir o painel do Stripe e gerenciar
+              sua conta bancária, ver os repasses programados e o histórico de saques.
+            </p>
+          </div>
           <button
             type="button"
             onClick={openPayoutLink}
@@ -238,7 +309,7 @@ export default function FinancialPage() {
               payoutLoading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer opacity-100',
             ].join(' ')}
           >
-            {payoutLoading ? t('common.loading') : t('financial.withdraw')}
+            {payoutLoading ? t('common.loading') : 'Abrir painel Stripe'}
           </button>
         </div>
       )}

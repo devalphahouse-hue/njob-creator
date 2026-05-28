@@ -70,7 +70,10 @@ function DateDivider({ label }: { label: string }) {
 }
 
 function MessageBubble({ msg, isMine }: { msg: MessageRow; isMine: boolean }) {
-  // Para a minha mensagem, o check duplo aparece quando o outro (cliente) leu.
+  // Aqui o "eu" é o creator. Check duplo na MINHA mensagem aparece quando o
+  // cliente leu. A view vw_messages expõe is_read_by_client/is_read_by_creator
+  // pareando com os participantes da conversa, então is_read_by_client é o
+  // sinal correto para o creator. (No client_web é o oposto.)
   const isRead = !!msg.is_read_by_client
 
   if (isMine) {
