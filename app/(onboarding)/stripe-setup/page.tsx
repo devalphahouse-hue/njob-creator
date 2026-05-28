@@ -308,14 +308,18 @@ function StripeSetupContent() {
           {detailsSubmitted && awaitingStripe && pending.length === 0 && (
             <p className="text-[var(--color-muted)] text-sm mb-6 leading-relaxed">
               Não é preciso fazer nada — o Stripe está verificando. Esta página atualiza
-              sozinha quando o resultado sair (pode levar de alguns minutos a algumas horas).
-              Enquanto isso você não consegue vender conteúdo, criar lives nem ficar online.
+              sozinha quando o resultado sair, você não precisa ficar recarregando. Na
+              maioria dos casos a liberação sai em poucos minutos, mas a verificação de
+              documento pode levar de <strong>1 a 3 dias úteis</strong> e, em casos mais
+              raros, até uma semana. Enquanto isso você não consegue vender conteúdo,
+              criar lives nem ficar online.
             </p>
           )}
           {detailsSubmitted && !reason && pending.length === 0 && !gate.ready && (
             <p className="text-[var(--color-muted)] text-sm mb-6 leading-relaxed">
-              O Stripe está validando suas informações. Esta página se atualiza sozinha
-              quando o Stripe responder.
+              O Stripe está validando suas informações. A análise costuma sair em
+              minutos, mas pode levar de <strong>1 a 3 dias úteis</strong> dependendo do
+              documento enviado. Esta página se atualiza sozinha quando o Stripe responder.
             </p>
           )}
           {detailsSubmitted && needsAction && (
