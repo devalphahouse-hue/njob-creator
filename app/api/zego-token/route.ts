@@ -156,7 +156,10 @@ export async function POST(request: NextRequest) {
         }
       }
     } else {
-      // Live: o creator só pode hostear a própria live.
+      // Live: o creator só pode hostear a própria live E só se ela ainda
+      // não encerrou. Sem o gate de status, host conseguia reabrir uma
+      // live finished/cancelled pelo link direto, regrava actual_start_time
+      // e a duração ficava recalculada com Date.now() (live "fantasma").
       const { data: liveRow } = await supabase
         .from('live_streams')
         .select('id, creator_id, status')
@@ -172,6 +175,12 @@ export async function POST(request: NextRequest) {
       if (liveRow.creator_id !== userID) {
         return NextResponse.json(
           { error: 'Você não é o host desta live' },
+          { status: 403, headers: corsHeaders }
+        )
+      }
+      if (liveRow.status === 'finished' || liveRow.status === 'cancelled') {
+        return NextResponse.json(
+          { error: 'Esta live já encerrou' },
           { status: 403, headers: corsHeaders }
         )
       }
