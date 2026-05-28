@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createCipheriv } from 'crypto'
 import {
-  PAID_CALL_WINDOW_MS,
+  getPaidCallWindowMs,
   LEGACY_CALL_GRACE_MS,
   DEFAULT_CALL_DURATION_MIN,
 } from '@/lib/constants/call-windows'
@@ -138,7 +138,8 @@ export async function POST(request: NextRequest) {
       const now = Date.now()
       if (callRow.status === 'paid') {
         const paidAt = callRow.paid_at ? new Date(callRow.paid_at).getTime() : NaN
-        if (!isFinite(paidAt) || now > paidAt + PAID_CALL_WINDOW_MS) {
+        const durationMin = callRow.scheduled_duration_minutes ?? DEFAULT_CALL_DURATION_MIN
+        if (!isFinite(paidAt) || now > paidAt + getPaidCallWindowMs(durationMin)) {
           return NextResponse.json(
             { error: 'Janela de entrada expirada' },
             { status: 403, headers: corsHeaders }

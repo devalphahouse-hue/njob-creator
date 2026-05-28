@@ -4,8 +4,15 @@
 // DetalhesAgendamentoModal.tsx — com um default divergente (?? 30 vs ?? 60)
 // que podia liberar a entrada no cliente e negar o token no servidor.
 
-/** Janela para entrar numa videochamada paga, contada a partir de paid_at. */
-export const PAID_CALL_WINDOW_MS = 2 * 60 * 60 * 1000
+/**
+ * Janela para entrar numa videochamada paga: igual à duração comprada,
+ * contada a partir de paid_at. 30 min comprados → 30 min pra entrar.
+ * Mantém em sincronia com client_web (timeWindows.ts) e a edge function
+ * generate-zego-token (server-side gate).
+ */
+export function getPaidCallWindowMs(durationMinutes: number): number {
+  return durationMinutes * 60 * 1000
+}
 
 /** Carência após o fim de uma chamada agendada (fluxo legado 'confirmed'). */
 export const LEGACY_CALL_GRACE_MS = 5 * 60 * 1000

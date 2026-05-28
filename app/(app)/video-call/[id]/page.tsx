@@ -8,7 +8,7 @@ import { useTranslation } from '@/lib/i18n'
 import { toast } from 'sonner'
 import { observeZegoTranslation } from '@/lib/zego-i18n'
 import {
-  PAID_CALL_WINDOW_MS,
+  getPaidCallWindowMs,
   LEGACY_CALL_GRACE_MS,
   DEFAULT_CALL_DURATION_MIN,
 } from '@/lib/constants/call-windows'
@@ -97,7 +97,8 @@ export default function VideoCallPage({ params }: { params: Promise<{ id: string
 
       if (call.status === 'paid') {
         const paidAt = call.paid_at ? new Date(call.paid_at).getTime() : NaN
-        if (!isFinite(paidAt) || now > paidAt + PAID_CALL_WINDOW_MS) {
+        const durationMin = call.scheduled_duration_minutes ?? DEFAULT_CALL_DURATION_MIN
+        if (!isFinite(paidAt) || now > paidAt + getPaidCallWindowMs(durationMin)) {
           setStatus('error')
           return
         }
