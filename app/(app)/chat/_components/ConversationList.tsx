@@ -77,17 +77,20 @@ export default function ConversationList({ selectedId }: { selectedId?: string }
     refetchIntervalInBackground: false,
   })
 
-  // Realtime: nova mensagem de outra pessoa → atualiza a lista
+  // Realtime: nova mensagem de outra pessoa → atualiza a lista.
+  // channelRef captura a instância do canal mesmo se o componente desmontar
+  // durante o `await getUser()` — assim o cleanup remove certinho e não
+  // vazamos canal em navegação rápida.
   useEffect(() => {
     let active = true
-    let channelName = ''
+    type ChannelLike = { unsubscribe: () => unknown }
+    const channelRef: { current: ChannelLike | null } = { current: null }
     ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
       const uid = user?.id
       if (!uid || !active) return
-      channelName = `creator-conversations-${uid}`
       const channel = supabase
-        .channel(channelName)
+        .channel(`creator-conversations-${uid}`)
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=neq.${uid}` },
@@ -98,10 +101,18 @@ export default function ConversationList({ selectedId }: { selectedId?: string }
             console.warn('[creator-conversations]', status)
           }
         })
-      if (!active) supabase.removeChannel(channel)
+      channelRef.current = channel as unknown as ChannelLike
+      if (!active) {
+        void supabase.removeChannel(channel)
+        channelRef.current = null
+      }
     })()
     return () => {
       active = false
+      if (channelRef.current) {
+        void supabase.removeChannel(channelRef.current as unknown as Parameters<typeof supabase.removeChannel>[0])
+        channelRef.current = null
+      }
     }
   }, [supabase, queryClient])
 

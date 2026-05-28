@@ -137,13 +137,15 @@ export default function ChatConversationPage() {
       .from('vw_messages')
       .select('*')
       .eq('conversation_id', id)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(100)
     if (error) {
       console.error('[Chat]', error)
       setMessages([])
       return
     }
-    let rows = (data ?? []) as MessageRow[]
+    // .order desc + .limit(100) pega as 100 mais recentes; reverso para exibir cronológico.
+    let rows = ((data ?? []) as MessageRow[]).reverse()
     const cleared = clearedAtRef.current
     if (cleared) {
       const clearedMs = new Date(cleared).getTime()

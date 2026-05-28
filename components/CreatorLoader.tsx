@@ -48,8 +48,9 @@ export default function CreatorLoader() {
     const onSetup = pathname?.startsWith('/stripe-setup')
 
     if (gate.ready && onSetup) {
-      toast.success('Conta Stripe verificada pelo Stripe!')
-      router.replace('/home')
+      // O redirect + toast quando aprovado fica na própria página /stripe-setup
+      // (ela é a "dona" desse fluxo). Aqui só evitamos render duplicado:
+      // se o usuário já está em /stripe-setup, deixamos a página decidir.
       return
     }
 
