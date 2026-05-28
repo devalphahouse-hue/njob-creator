@@ -48,6 +48,15 @@ const STRIPE_DISABLED_REASON_LABELS: Record<string, string> = {
   'other': 'O Stripe identificou pendências na sua conta.',
 }
 
+// Reasons em que o Stripe está validando e o creator NÃO precisa fazer nada —
+// só aguardar o resultado. Distinguir desses casos dos reasons que exigem ação
+// (past_due, rejected.*, listed, etc.) muda completamente o copy e os botões.
+const STRIPE_WAIT_REASONS = new Set([
+  'requirements.pending_verification',
+  'under_review',
+  'listed',
+])
+
 function humanizeRequirement(key: string): string {
   return STRIPE_REQUIREMENT_LABELS[key] ?? key.replace(/_/g, ' ')
 }
@@ -209,6 +218,11 @@ function StripeSetupContent() {
   const pending = Array.from(new Set([...(gate?.currentlyDue ?? []), ...(gate?.pastDue ?? [])]))
   const lastSyncedAt = (details as { last_synced_at?: string } | null)?.last_synced_at ?? null
 
+  // "Aguardando Stripe" = Stripe está validando, creator não tem o que fazer.
+  // Não confundir com REJECTED (creator precisa corrigir).
+  const awaitingStripe = !!reason && STRIPE_WAIT_REASONS.has(reason)
+  const needsAction = (!!reason && !awaitingStripe) || pending.length > 0 || !detailsSubmitted
+
   return (
     <div className="max-w-[520px] mx-auto p-6 text-center">
       <h1 className="text-[22px] font-semibold mb-2">Configurar pagamentos</h1>
@@ -243,10 +257,23 @@ function StripeSetupContent() {
             )}
           </div>
 
-          {/* Motivo do Stripe — só aparece se o Stripe enviou um */}
+          {/* Motivo do Stripe — só aparece se o Stripe enviou um.
+              Cor depende de "aguardando Stripe" (azul/info) vs "precisa de ação" (vermelho). */}
           {reason && (
-            <div className="bg-[var(--color-error,#ef4444)]/10 border border-[var(--color-error,#ef4444)]/30 rounded-xl px-5 py-4 text-left mb-5">
-              <p className="text-[var(--color-error,#ef4444)] font-semibold mb-1">
+            <div
+              className={
+                awaitingStripe
+                  ? 'bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/30 rounded-xl px-5 py-4 text-left mb-5'
+                  : 'bg-[var(--color-error,#ef4444)]/10 border border-[var(--color-error,#ef4444)]/30 rounded-xl px-5 py-4 text-left mb-5'
+              }
+            >
+              <p
+                className={
+                  awaitingStripe
+                    ? 'text-[var(--color-primary)] font-semibold mb-1'
+                    : 'text-[var(--color-error,#ef4444)] font-semibold mb-1'
+                }
+              >
                 {humanizeReason(reason)}
               </p>
               <p className="text-[var(--color-muted)] text-xs leading-relaxed">
@@ -278,21 +305,30 @@ function StripeSetupContent() {
               Você ainda não terminou o cadastro no Stripe. Abra o cadastro pra continuar.
             </p>
           )}
-          {detailsSubmitted && !reason && pending.length === 0 && !gate.ready && (
+          {detailsSubmitted && awaitingStripe && pending.length === 0 && (
             <p className="text-[var(--color-muted)] text-sm mb-6 leading-relaxed">
-              O Stripe está validando suas informações. Pode levar de alguns minutos a algumas horas —
-              essa página se atualiza sozinha quando o Stripe responder.
+              Não é preciso fazer nada — o Stripe está verificando. Esta página atualiza
+              sozinha quando o resultado sair (pode levar de alguns minutos a algumas horas).
+              Enquanto isso você não consegue vender conteúdo, criar lives nem ficar online.
             </p>
           )}
-          {detailsSubmitted && (reason || pending.length > 0) && (
+          {detailsSubmitted && !reason && pending.length === 0 && !gate.ready && (
+            <p className="text-[var(--color-muted)] text-sm mb-6 leading-relaxed">
+              O Stripe está validando suas informações. Esta página se atualiza sozinha
+              quando o Stripe responder.
+            </p>
+          )}
+          {detailsSubmitted && needsAction && (
             <p className="text-[var(--color-muted)] text-sm mb-6 leading-relaxed">
               Reabra o cadastro do Stripe para corrigir/enviar o que falta. Enquanto isso
               você não consegue vender conteúdo, criar lives nem ficar online.
             </p>
           )}
 
-          {/* Ações — botão principal depende do que o Stripe disse */}
-          {(reason || pending.length > 0 || !detailsSubmitted) && (
+          {/* Ação primária só aparece quando o creator precisa fazer alguma coisa.
+              Em awaitingStripe (Stripe verificando) NÃO mostramos botão pra reabrir
+              o cadastro — não há nada pra corrigir. */}
+          {needsAction && (
             <button
               type="button"
               onClick={handleReopenOnboarding}
