@@ -70,15 +70,23 @@ export default function LiveHostPage({ params }: { params: Promise<{ id: string 
         return
       }
 
-      // Valida que o creator é dono do evento
+      // Valida que o creator é dono do evento E que a live ainda não terminou.
+      // Sem o gate de status, o host poderia reabrir uma live finished/cancelled
+      // pelo link direto e re-iniciar o timer (resultado: live "fantasma" sem
+      // espectadores e sem cobrança), além de status no banco ficar inconsistente.
       const { data: live } = await supabase
         .from('live_streams')
-        .select('id, creator_id, estimated_duration_minutes')
+        .select('id, creator_id, status, estimated_duration_minutes')
         .eq('id', id)
         .single()
 
       if (!live || live.creator_id !== userId) {
         setStatus('not-owner')
+        return
+      }
+
+      if (live.status === 'finished' || live.status === 'cancelled') {
+        setStatus('error')
         return
       }
 

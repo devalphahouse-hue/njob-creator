@@ -426,10 +426,19 @@ export default function RegisterPage() {
     // 1) Inserir/atualizar na tabela profiles (upsert para evitar conflito
     //    caso um trigger já tenha criado o registro automaticamente)
     const nowIso = new Date().toISOString()
+    // Username = nome normalizado + sufixo de 6 chars do user.id. Dois creators
+    // com nomes id\u00eanticos n\u00e3o colidem no UNIQUE de profiles.username.
+    const baseSlug = formData.nome
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+    const usernameSlug = baseSlug ? `${baseSlug}-${userId.slice(0, 6)}` : userId.slice(0, 12)
     const { error: profileError } = await supabase.from('profiles').upsert({
       id: userId,
       full_name: formData.nome,
-      username: formData.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      username: usernameSlug,
       role: 'creator' as const,
       is_active: true,
       date_birth: formData.dataNascimento || null,
