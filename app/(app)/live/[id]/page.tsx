@@ -160,8 +160,46 @@ export default function LiveHostPage({ params }: { params: Promise<{ id: string 
       if (!cancelled) setStatus('error')
     })
 
+    // Encerra a live no fechamento real da aba (pagehide/beforeunload).
+    // Sem isso, se o host fechava a aba antes do tempo, a live ficava em
+    // status='live' até o cron expire-stale-lives rodar. Espectadores
+    // ficavam vendo "AO VIVO" indevidamente. fetch com keepalive é o caminho
+    // que suporta headers (apikey/auth) e sobrevive ao unload.
+    const markFinishedOnClose = async () => {
+      if (endedRef.current) return
+      endedRef.current = true
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return
+        await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/live_streams?id=eq.${id}`,
+          {
+            method: 'PATCH',
+            keepalive: true,
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              Authorization: `Bearer ${session.access_token}`,
+              Prefer: 'return=minimal',
+            },
+            body: JSON.stringify({
+              status: 'finished',
+              actual_end_time: new Date().toISOString(),
+            }),
+          },
+        )
+      } catch {
+        /* best-effort — cron fn_expire_stale_lives pega depois */
+      }
+    }
+    const handleUnload = () => { void markFinishedOnClose() }
+    window.addEventListener('pagehide', handleUnload)
+    window.addEventListener('beforeunload', handleUnload)
+
     return () => {
       cancelled = true
+      window.removeEventListener('pagehide', handleUnload)
+      window.removeEventListener('beforeunload', handleUnload)
       if (timerRef.current) {
         clearInterval(timerRef.current)
         timerRef.current = null

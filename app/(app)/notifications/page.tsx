@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import PageHeader from '@/components/ui/PageHeader'
 import { useTranslation } from '@/lib/i18n'
@@ -125,6 +125,41 @@ export default function NotificationsPage() {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
   const filtered = filter === 'unread' ? notifications.filter((n) => !n.is_read) : notifications
+
+  // Realtime: nova notificação chega na hora (não espera polling 30s).
+  useEffect(() => {
+    let active = true
+    let channelRef: { unsubscribe?: () => unknown } | null = null
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.id || !active) return
+      const channel = supabase
+        .channel(`notifications:${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+          },
+        )
+        .subscribe((status) => {
+          if (status !== 'SUBSCRIBED') console.warn('[notifications-realtime]', status)
+        })
+      channelRef = channel as unknown as { unsubscribe?: () => unknown }
+      if (!active) void supabase.removeChannel(channel)
+    })()
+    return () => {
+      active = false
+      if (channelRef) {
+        void supabase.removeChannel(channelRef as unknown as Parameters<typeof supabase.removeChannel>[0])
+      }
+    }
+  }, [supabase, queryClient])
 
   return (
     <div className="flex flex-col min-h-full bg-[var(--color-background)]">

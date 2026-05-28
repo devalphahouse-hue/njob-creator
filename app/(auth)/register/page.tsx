@@ -322,6 +322,7 @@ export default function RegisterPage() {
       if (!formData.genero) newErrors.genero = t('register.genderRequired')
       if (!formData.sexualidade) newErrors.sexualidade = t('register.sexualityRequired')
       if (!formData.cep) newErrors.cep = t('register.zipRequired')
+      else if (formData.cep.replace(/\D/g, '').length !== 8) newErrors.cep = t('register.zipNotFound')
       if (!formData.cidade) newErrors.cidade = t('register.cityRequired')
       if (!formData.email) newErrors.email = t('auth.emailRequired')
       if (!formData.senha) newErrors.senha = t('auth.passwordRequired')
@@ -381,8 +382,10 @@ export default function RegisterPage() {
         })
 
         if (error) {
-          console.error('Erro ao verificar email:', error)
-          // Se a função RPC não existir, avança sem verificar
+          // RPC indisponível: registramos no console mas NÃO bloqueamos o
+          // cadastro — o signUp final do supabase rejeita e-mail duplicado
+          // de qualquer jeito (com mensagem traduzida no catch do submit).
+          console.error('[register] check_email_exists falhou:', error.message)
         } else if (data === true) {
           setErrors((prev) => ({ ...prev, email: t('auth.emailAlreadyRegistered') }))
           // Exibe o modal amigável além do erro inline
@@ -390,8 +393,8 @@ export default function RegisterPage() {
           setLoading(false)
           return
         }
-      } catch {
-        // Se falhar, avança sem verificar
+      } catch (err) {
+        console.error('[register] check_email_exists exception:', err)
       }
       setLoading(false)
     }
