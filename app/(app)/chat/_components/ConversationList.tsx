@@ -72,6 +72,9 @@ export default function ConversationList({ selectedId }: { selectedId?: string }
       })
     },
     refetchOnWindowFocus: true,
+    // Fallback contra Realtime quebrado: refaz a lista a cada 5s.
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false,
   })
 
   // Realtime: nova mensagem de outra pessoa → atualiza a lista
@@ -90,7 +93,11 @@ export default function ConversationList({ selectedId }: { selectedId?: string }
           { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=neq.${uid}` },
           () => queryClient.invalidateQueries({ queryKey: ['vw_creator_conversations'] }),
         )
-        .subscribe()
+        .subscribe((status) => {
+          if (status !== 'SUBSCRIBED') {
+            console.warn('[creator-conversations]', status)
+          }
+        })
       if (!active) supabase.removeChannel(channel)
     })()
     return () => {

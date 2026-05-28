@@ -203,9 +203,21 @@ export default function ChatConversationPage() {
           fetchMessages().then(() => scrollToBottom())
         },
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') {
+          console.warn(`[chat-realtime] ${id}:`, status)
+        }
+      })
+    // Fallback contra Realtime quebrado: poll a cada 4s para garantir que
+    // mensagens novas do outro lado apareçam mesmo se postgres_changes falhar.
+    const pollId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void fetchMessages()
+      }
+    }, 4000)
     return () => {
       supabase.removeChannel(channel)
+      window.clearInterval(pollId)
     }
   }, [id, supabase, fetchMessages, scrollToBottom])
 

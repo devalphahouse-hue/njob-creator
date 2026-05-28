@@ -1,7 +1,84 @@
 import { createClient } from '@/lib/supabase/client'
-import type { CreatorData, UserRole } from '@/lib/types/database'
+import type { AccountDetails, CreatorData, UserRole } from '@/lib/types/database'
 
 type SupabaseClientType = ReturnType<typeof createClient>
+
+export interface PayoutGateState {
+  ready: boolean
+  status: 'PENDING' | 'VERIFYING' | 'COMPLETED' | 'REJECTED' | 'MISSING'
+  reason: string | null
+  pastDue: string[]
+  currentlyDue: string[]
+  accountDetails: AccountDetails | null
+}
+
+/**
+ * Verdadeiro estado do Stripe Connect do creator. O backend marca status='COMPLETED'
+ * quando details_submitted=true, mas o Stripe pode rejeitar (charges_enabled=false /
+ * payouts_enabled=false). Esta é a única função autoritativa para liberar features
+ * que tocam Stripe (vender conteúdo, criar live, ligar online, aceitar chamada).
+ */
+export function isCreatorStripeReady(
+  status: string | null | undefined,
+  details: AccountDetails | null | undefined,
+): boolean {
+  if (!status || status !== 'COMPLETED') return false
+  if (!details) return false
+  return details.charges_enabled === true && details.payouts_enabled === true
+}
+
+/**
+ * Lê creator_payout_info do usuário autenticado e devolve o estado consolidado
+ * para o frontend: ready=true só se Stripe aprovou de fato; reason/pastDue/
+ * currentlyDue para mostrar ao usuário o que falta.
+ */
+export async function fetchPayoutGateState(
+  supabase: SupabaseClientType,
+  userId: string,
+): Promise<PayoutGateState> {
+  const { data } = await supabase
+    .from('creator_payout_info')
+    .select('status, account_details')
+    .eq('creator_id', userId)
+    .maybeSingle()
+
+  if (!data) {
+    return {
+      ready: false,
+      status: 'MISSING',
+      reason: null,
+      pastDue: [],
+      currentlyDue: [],
+      accountDetails: null,
+    }
+  }
+
+  const details = (data.account_details as AccountDetails | null) ?? null
+  const raw = (data.account_details as Record<string, unknown> | null) ?? null
+  const reason = (raw?.disabled_reason as string | null | undefined) ?? null
+  const pastDue = Array.isArray(raw?.past_due) ? (raw.past_due as string[]) : []
+  const currentlyDue = Array.isArray(raw?.currently_due) ? (raw.currently_due as string[]) : []
+  const ready = isCreatorStripeReady(data.status, details)
+
+  let normalized: PayoutGateState['status']
+  if (ready) normalized = 'COMPLETED'
+  else if (data.status === 'COMPLETED' || data.status === 'VERIFYING') {
+    // Status diz COMPLETED/VERIFYING mas charges/payouts não estão habilitados:
+    // se Stripe disse explicitamente que recusou, marcamos REJECTED; senão VERIFYING.
+    normalized = reason ? 'REJECTED' : 'VERIFYING'
+  } else {
+    normalized = 'PENDING'
+  }
+
+  return {
+    ready,
+    status: normalized,
+    reason,
+    pastDue,
+    currentlyDue,
+    accountDetails: details,
+  }
+}
 
 interface PayoutStatusCallbacks {
   isCreatorAndCompleted: () => void

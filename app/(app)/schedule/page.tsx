@@ -10,6 +10,7 @@ import NovoEventoModal from '@/components/home/NovoEventoModal'
 import { formatTimeLocal, eventDateKeyLocal } from '@/lib/utils/datetime'
 import { useTranslation, getLocaleBcp47 } from '@/lib/i18n'
 import { useLiveStreamCleanup } from '@/lib/hooks/useLiveStreamCleanup'
+import { useStripeGate } from '@/lib/hooks/useStripeGate'
 import { DateSelector } from './_components/DateSelector'
 // AvailabilityBadge removido junto com a agenda fixa.
 import { EventList } from './_components/EventList'
@@ -62,6 +63,7 @@ function deriveEventStatus(row: VwCreatorEventRow): 'upcoming' | 'available' | '
 export default function SchedulePage() {
   const supabase = createClient()
   const creator = useCreator()
+  const { ensureReady: ensureStripeReady } = useStripeGate()
   const { t, locale } = useTranslation()
 
   const [tabCalendarioSelect, setTabCalendarioSelect] = useState<TabCalendario>('month')
@@ -202,7 +204,10 @@ export default function SchedulePage() {
         dataSelect={dataSelect}
         onToggleMenu={() => setShowFabMenu((v) => !v)}
         onCloseMenu={() => setShowFabMenu(false)}
-        onOpenNovoEvento={() => setModalNovoOpen(true)}
+        onOpenNovoEvento={async () => {
+          if (!(await ensureStripeReady())) return
+          setModalNovoOpen(true)
+        }}
         tNewEvent={t('events.newEvent')}
         tCreateLive={t('events.createLive')}
       />

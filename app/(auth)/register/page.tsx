@@ -325,7 +325,10 @@ export default function RegisterPage() {
       if (!formData.cidade) newErrors.cidade = t('register.cityRequired')
       if (!formData.email) newErrors.email = t('auth.emailRequired')
       if (!formData.senha) newErrors.senha = t('auth.passwordRequired')
-      else if (formData.senha.length < 6) newErrors.senha = t('register.min6Chars')
+      else if (formData.senha.length < 12) newErrors.senha = t('register.passwordMinLength')
+      else if (!/[a-z]/.test(formData.senha)) newErrors.senha = t('register.passwordNeedLowercase')
+      else if (!/[A-Z]/.test(formData.senha)) newErrors.senha = t('register.passwordNeedUppercase')
+      else if (!/[0-9]/.test(formData.senha)) newErrors.senha = t('register.passwordNeedNumber')
     }
 
     if (step === 2) {
@@ -979,7 +982,8 @@ function Step0({
       />
       <PasswordInput
         label={t('auth.password')}
-        placeholder={t('register.passwordMinChars')}
+        placeholder={t('register.passwordPlaceholder')}
+        hint={t('register.passwordRequirements')}
         value={formData.senha}
         onChange={(e) => update('senha', e.target.value)}
         error={errors.senha}

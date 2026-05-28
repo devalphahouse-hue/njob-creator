@@ -27,8 +27,20 @@ function NewPasswordContent() {
       setNewPasswordError(t('resetPassword.passwordRequired'))
       return
     }
-    if (newPassword.length < 6) {
+    if (newPassword.length < 12) {
       setNewPasswordError(t('resetPassword.min6Chars'))
+      return
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      setNewPasswordError(t('register.passwordNeedLowercase'))
+      return
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      setNewPasswordError(t('register.passwordNeedUppercase'))
+      return
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      setNewPasswordError(t('register.passwordNeedNumber'))
       return
     }
     if (newPassword !== confirmPassword) {
@@ -62,6 +74,7 @@ function NewPasswordContent() {
         <PasswordInput
           label={t('resetPassword.newPassword')}
           placeholder="••••••••"
+          hint={t('register.passwordRequirements')}
           value={newPassword}
           onChange={(e) => { setNewPassword(e.target.value); setNewPasswordError('') }}
           error={newPasswordError}

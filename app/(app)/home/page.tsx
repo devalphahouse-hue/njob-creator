@@ -18,6 +18,7 @@ import {
   eventStartDateLocal,
 } from '@/lib/utils/datetime'
 import { useLiveStreamCleanup } from '@/lib/hooks/useLiveStreamCleanup'
+import { useStripeGate } from '@/lib/hooks/useStripeGate'
 
 import { HomeHeader } from './_components/HomeHeader'
 import { TodayEvents } from './_components/TodayEvents'
@@ -68,6 +69,7 @@ export default function HomePage() {
   const setCreator = useAppStore((s) => s.setCreator)
   const router = useRouter()
   const { requireAuth, showGuestModal, setShowGuestModal } = useGuestGuard()
+  const { ensureReady: ensureStripeReady } = useStripeGate()
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false)
@@ -256,6 +258,9 @@ export default function HomePage() {
     async (isOnline: boolean) => {
       if (!requireAuth()) return
       if (!creator) return
+      // Ligar online expõe o creator pra videochamadas pagas — exige Stripe ready.
+      // Desligar não tem efeito de cobrança, deixa passar.
+      if (isOnline && !(await ensureStripeReady())) return
       const { data: { user } } = await supabase.auth.getUser()
       const userId = user?.id
       if (!userId) return
@@ -339,13 +344,14 @@ export default function HomePage() {
         setOnlineUpdating(false)
       }
     },
-    [creator, supabase, setCreator, requireAuth, t]
+    [creator, supabase, setCreator, requireAuth, ensureStripeReady, t]
   )
 
-  const handleCreateEvent = useCallback(() => {
+  const handleCreateEvent = useCallback(async () => {
     if (!requireAuth()) return
+    if (!(await ensureStripeReady())) return
     setModalOpen(true)
-  }, [requireAuth])
+  }, [requireAuth, ensureStripeReady])
 
   // ─── Render ────────────────────────────────────────────────────
 

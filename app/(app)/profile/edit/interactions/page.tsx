@@ -9,6 +9,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { useTranslation, getLocaleBcp47 } from '@/lib/i18n'
+import { useStripeGate } from '@/lib/hooks/useStripeGate'
 
 // ─── Toggle ──────────────────────────────────────────────────────────────────
 
@@ -113,6 +114,7 @@ export default function AlterarInteracoesPage() {
   const router = useRouter()
   const creator = useCreator()
   const setCreator = useAppStore((s) => s.setCreator)
+  const { ensureReady: ensureStripeReady } = useStripeGate()
   const { t, locale } = useTranslation()
   const localeBcp47 = getLocaleBcp47(locale)
 
@@ -170,6 +172,10 @@ export default function AlterarInteracoesPage() {
 
   const handleConfirm = async () => {
     if (!creator) return
+
+    // Habilitar venda (packs ou videochamada) exige Stripe ready. Sem isso
+    // o creator aparece como vendendo mas o checkout falha.
+    if ((vendePacks || fazVideochamada) && !(await ensureStripeReady())) return
 
     if (fazVideochamada) {
       const v30 = parseCurrency(valor30min)
