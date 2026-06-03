@@ -4,6 +4,7 @@ import MobileAppBar from '@/components/ui/MobileAppBar'
 import CreatorLoader from '@/components/CreatorLoader'
 import CreatorPresenceShell from '@/components/CreatorPresenceShell'
 import PullToRefresh from '@/components/ui/PullToRefresh'
+import StripeGateProvider from '@/components/stripe/StripeGateProvider'
 
 export default function AppLayout({
   children,
@@ -26,7 +27,9 @@ export default function AppLayout({
 
         <main className="flex-1 min-h-0 flex flex-col">
           <PullToRefresh className="flex-1 p-6 pb-20 md:pb-6">
-            {children}
+            <StripeGateProvider>
+              {children}
+            </StripeGateProvider>
           </PullToRefresh>
         </main>
       </div>

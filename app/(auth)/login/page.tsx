@@ -46,21 +46,19 @@ export default function LoginPage() {
     useAppStore.getState().setGuest(false)
 
     const supabase = createClient()
+    // No login, o creator SEMPRE entra no app (/home), independente do estado do
+    // Stripe. A /stripe-setup ficou só para o primeiro cadastro (no registro);
+    // dentro do app, o status/banner/travas do Stripe cuidam do resto.
     await checkCreatorPayoutStatus(supabase, {
       isCreatorAndCompleted: async () => {
         const info = await getCreatorInfo(supabase)
         if (info) setCreator(info)
         router.push('/home')
       },
-      isCreatorAndPending: async (onboardingUrl: string) => {
+      isCreatorAndPending: async () => {
         const info = await getCreatorInfo(supabase)
         if (info) setCreator(info)
-        if (onboardingUrl) {
-          router.push(`/stripe-setup?url=${encodeURIComponent(onboardingUrl)}`)
-        } else {
-          toast.info(t('onboarding.registrationPending'))
-          router.push('/stripe-setup')
-        }
+        router.push('/home')
       },
       isNotCreator: async () => {
         toast.error(t('auth.noAccess'))

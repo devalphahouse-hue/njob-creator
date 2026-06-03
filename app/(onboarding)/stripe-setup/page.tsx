@@ -7,6 +7,18 @@ import { createClient } from '@/lib/supabase/client'
 import { createStripeAccount } from '@/lib/supabase/creator'
 import { useStripePayoutRealtime } from '@/lib/hooks/useStripePayoutRealtime'
 import { useTranslation } from '@/lib/i18n'
+import {
+  CreditCard,
+  CheckCircle2,
+  Circle,
+  AlertTriangle,
+  Clock,
+  FileText,
+  RefreshCw,
+  ArrowRight,
+  Loader2,
+  Lock,
+} from 'lucide-react'
 
 // ─── Humanização dos campos do Stripe (não inventa nada — só traduz) ────────
 
@@ -223,36 +235,92 @@ function StripeSetupContent() {
   const awaitingStripe = !!reason && STRIPE_WAIT_REASONS.has(reason)
   const needsAction = (!!reason && !awaitingStripe) || pending.length > 0 || !detailsSubmitted
 
+  // Badge de status (resumo no topo do card).
+  const pill = !detailsSubmitted
+    ? { label: 'Cadastro incompleto', cls: 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]' }
+    : needsAction && !awaitingStripe
+      ? { label: 'Ação necessária', cls: 'bg-[var(--color-error,#ef4444)]/15 text-[var(--color-error,#ef4444)]' }
+      : { label: 'Em análise', cls: 'bg-amber-500/15 text-amber-400' }
+
   return (
-    <div className="max-w-[520px] mx-auto p-6 text-center">
-      <h1 className="text-[22px] font-semibold mb-2">Configurar pagamentos</h1>
+    <div className="lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:h-screen">
+
+        {/* Painel de marca — só no desktop */}
+        <aside className="hidden lg:flex flex-col justify-between gap-10 px-10 py-12 bg-gradient-to-br from-[var(--color-primary)] to-[#7c3aed] text-white lg:overflow-y-auto">
+          <div>
+            <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center mb-5">
+              <CreditCard className="w-7 h-7 text-white" strokeWidth={1.75} />
+            </div>
+            <h1 className="text-[26px] font-bold leading-tight">Configurar pagamentos</h1>
+            <p className="text-sm text-white/85 mt-3 leading-relaxed max-w-[320px]">
+              Conecte sua conta no Stripe para receber pelas suas vendas com segurança.
+            </p>
+          </div>
+          <ul className="space-y-3.5">
+            {['Vender conteúdo e pacotes', 'Fazer lives com ingresso', 'Receber por chamadas de vídeo', 'Saques direto na sua conta'].map((b) => (
+              <li key={b} className="flex items-center gap-3 text-sm text-white/95">
+                <CheckCircle2 className="w-[18px] h-[18px] shrink-0 text-white" />
+                {b}
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center gap-2 text-xs text-white/75">
+            <Lock className="w-3.5 h-3.5 shrink-0" />
+            Pagamentos processados com segurança pelo Stripe.
+          </div>
+        </aside>
+
+        {/* Conteúdo funcional */}
+        <div className="min-h-screen lg:h-screen lg:overflow-y-auto flex flex-col justify-center lg:justify-start px-4 py-6 lg:px-12 lg:py-10 lg:bg-[var(--color-surface)]">
+          <div className="w-full max-w-[520px] mx-auto lg:max-w-[480px] lg:my-auto">
+          {/* Hero compacto — só no mobile */}
+          <div className="lg:hidden flex flex-col items-center text-center mb-6">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--color-primary)] to-[#7c3aed] flex items-center justify-center mb-4 shadow-lg shadow-[var(--color-primary)]/25">
+              <CreditCard className="w-8 h-8 text-white" strokeWidth={1.75} />
+            </div>
+            <h1 className="text-[22px] font-bold">Configurar pagamentos</h1>
+            <p className="text-sm text-[var(--color-muted)] mt-1.5 max-w-[360px] leading-relaxed">
+              Conecte sua conta no Stripe para receber por vendas, conteúdo, lives e chamadas.
+            </p>
+          </div>
 
       {loading || !gate ? (
-        <p className="text-[var(--color-muted)] text-sm">{t('common.loading')}</p>
+        <div className="flex flex-col items-center justify-center gap-3 py-16 text-[var(--color-muted)]">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <p className="text-sm">{t('common.loading')}</p>
+        </div>
       ) : (
         <>
           {/* Painel de status do Stripe — fonte de verdade são os campos do Stripe */}
-          <div className="rounded-xl bg-[var(--color-surface-2)] px-5 py-4 text-left mb-5">
-            <p className="text-[var(--color-foreground)] font-semibold mb-2">
-              Status no Stripe
-            </p>
-            <ul className="text-sm text-[var(--color-foreground)] space-y-1">
-              <li className="flex items-center gap-2">
-                <span className={['inline-block w-2 h-2 rounded-full', detailsSubmitted ? 'bg-green-500' : 'bg-[var(--color-muted)]'].join(' ')} />
-                Formulário do Stripe enviado
-              </li>
-              <li className="flex items-center gap-2">
-                <span className={['inline-block w-2 h-2 rounded-full', chargesEnabled ? 'bg-green-500' : 'bg-[var(--color-muted)]'].join(' ')} />
-                Receber pagamentos (charges_enabled)
-              </li>
-              <li className="flex items-center gap-2">
-                <span className={['inline-block w-2 h-2 rounded-full', payoutsEnabled ? 'bg-green-500' : 'bg-[var(--color-muted)]'].join(' ')} />
-                Receber repasse no banco (payouts_enabled)
-              </li>
+          <div className="rounded-2xl bg-[var(--color-surface-2)] border border-[var(--color-border)] px-4 py-4 text-left mb-4">
+            <div className="flex items-center justify-between mb-3.5">
+              <p className="text-[var(--color-foreground)] font-semibold">Status no Stripe</p>
+              <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${pill.cls}`}>
+                {pill.label}
+              </span>
+            </div>
+            <ul className="text-sm space-y-3">
+              {[
+                { ok: detailsSubmitted, label: 'Cadastro enviado' },
+                { ok: chargesEnabled, label: 'Pode receber pagamentos' },
+                { ok: payoutsEnabled, label: 'Pode receber repasses no banco' },
+              ].map((row) => (
+                <li key={row.label} className="flex items-center gap-2.5">
+                  {row.ok ? (
+                    <CheckCircle2 className="w-[18px] h-[18px] text-green-500 shrink-0" />
+                  ) : (
+                    <Circle className="w-[18px] h-[18px] text-[var(--color-muted)] shrink-0" />
+                  )}
+                  <span className={row.ok ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted)]'}>
+                    {row.label}
+                  </span>
+                </li>
+              ))}
             </ul>
             {lastSyncedAt && (
-              <p className="text-xs text-[var(--color-muted)] mt-3">
-                Sincronizado com o Stripe {formatRelativeTime(lastSyncedAt)}
+              <p className="text-xs text-[var(--color-muted)] mt-4 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                Sincronizado {formatRelativeTime(lastSyncedAt)}
               </p>
             )}
           </div>
@@ -261,38 +329,51 @@ function StripeSetupContent() {
               Cor depende de "aguardando Stripe" (azul/info) vs "precisa de ação" (vermelho). */}
           {reason && (
             <div
-              className={
+              className={[
+                'flex items-start gap-3 rounded-2xl border px-4 py-4 text-left mb-4',
                 awaitingStripe
-                  ? 'bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/30 rounded-xl px-5 py-4 text-left mb-5'
-                  : 'bg-[var(--color-error,#ef4444)]/10 border border-[var(--color-error,#ef4444)]/30 rounded-xl px-5 py-4 text-left mb-5'
-              }
+                  ? 'bg-[var(--color-primary)]/10 border-[var(--color-primary)]/30'
+                  : 'bg-[var(--color-error,#ef4444)]/10 border-[var(--color-error,#ef4444)]/30',
+              ].join(' ')}
             >
-              <p
-                className={
-                  awaitingStripe
-                    ? 'text-[var(--color-primary)] font-semibold mb-1'
-                    : 'text-[var(--color-error,#ef4444)] font-semibold mb-1'
-                }
-              >
-                {humanizeReason(reason)}
-              </p>
-              <p className="text-[var(--color-muted)] text-xs leading-relaxed">
-                Mensagem original do Stripe: <code className="text-[var(--color-foreground)]">{reason}</code>
-              </p>
+              {awaitingStripe ? (
+                <Clock className="w-5 h-5 shrink-0 mt-0.5 text-[var(--color-primary)]" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-[var(--color-error,#ef4444)]" />
+              )}
+              <div className="min-w-0">
+                <p
+                  className={
+                    awaitingStripe
+                      ? 'text-[var(--color-primary)] font-semibold mb-1'
+                      : 'text-[var(--color-error,#ef4444)] font-semibold mb-1'
+                  }
+                >
+                  {humanizeReason(reason)}
+                </p>
+                <p className="text-[var(--color-muted)] text-xs leading-relaxed">
+                  Mensagem original do Stripe:{' '}
+                  <code className="text-[var(--color-foreground)] break-all">{reason}</code>
+                </p>
+              </div>
             </div>
           )}
 
           {/* Pendências do Stripe — só aparece se o Stripe enviou */}
           {pending.length > 0 && (
-            <div className="text-left bg-[var(--color-surface-2)] rounded-xl px-5 py-4 mb-5">
-              <p className="text-[var(--color-foreground)] font-semibold mb-2">
-                O Stripe está pedindo:
+            <div className="text-left bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-2xl px-4 py-4 mb-4">
+              <p className="text-[var(--color-foreground)] font-semibold mb-3 flex items-center gap-2">
+                <FileText className="w-[18px] h-[18px] text-[var(--color-primary)]" />
+                O Stripe está pedindo
               </p>
-              <ul className="list-disc list-inside text-sm text-[var(--color-foreground)] space-y-1">
+              <ul className="text-sm space-y-2.5">
                 {pending.map((field) => (
-                  <li key={field}>
-                    {humanizeRequirement(field)}{' '}
-                    <span className="text-xs text-[var(--color-muted)]">({field})</span>
+                  <li key={field} className="flex items-start gap-2.5">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] shrink-0" />
+                    <span className="text-[var(--color-foreground)]">
+                      {humanizeRequirement(field)}{' '}
+                      <span className="text-xs text-[var(--color-muted)] break-all">({field})</span>
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -300,77 +381,93 @@ function StripeSetupContent() {
           )}
 
           {/* Instrução com base no que o Stripe diz */}
-          {!detailsSubmitted && (
-            <p className="text-[var(--color-muted)] text-sm mb-6">
-              Você ainda não terminou o cadastro no Stripe. Abra o cadastro pra continuar.
-            </p>
-          )}
-          {detailsSubmitted && awaitingStripe && pending.length === 0 && (
-            <p className="text-[var(--color-muted)] text-sm mb-6 leading-relaxed">
-              Não é preciso fazer nada — o Stripe está verificando. Esta página atualiza
-              sozinha quando o resultado sair, você não precisa ficar recarregando. Na
-              maioria dos casos a liberação sai em poucos minutos, mas a verificação de
-              documento pode levar de <strong>1 a 3 dias úteis</strong> e, em casos mais
-              raros, até uma semana. Enquanto isso você não consegue vender conteúdo,
-              criar lives nem ficar online.
-            </p>
-          )}
-          {detailsSubmitted && !reason && pending.length === 0 && !gate.ready && (
-            <p className="text-[var(--color-muted)] text-sm mb-6 leading-relaxed">
-              O Stripe está validando suas informações. A análise costuma sair em
-              minutos, mas pode levar de <strong>1 a 3 dias úteis</strong> dependendo do
-              documento enviado. Esta página se atualiza sozinha quando o Stripe responder.
-            </p>
-          )}
-          {detailsSubmitted && needsAction && (
-            <p className="text-[var(--color-muted)] text-sm mb-6 leading-relaxed">
-              Reabra o cadastro do Stripe para corrigir/enviar o que falta. Enquanto isso
-              você não consegue vender conteúdo, criar lives nem ficar online.
-            </p>
-          )}
+          <div className="text-center text-sm text-[var(--color-muted)] leading-relaxed mb-5 px-1">
+            {!detailsSubmitted && (
+              <p>Você ainda não terminou o cadastro no Stripe. Abra o cadastro pra continuar.</p>
+            )}
+            {detailsSubmitted && awaitingStripe && pending.length === 0 && (
+              <p>
+                Não é preciso fazer nada — o Stripe está verificando e esta página atualiza
+                sozinha quando o resultado sair. Em geral leva poucos minutos, mas a
+                verificação de documento pode levar de <strong>1 a 3 dias úteis</strong>.
+              </p>
+            )}
+            {detailsSubmitted && !reason && pending.length === 0 && !gate.ready && (
+              <p>
+                O Stripe está validando suas informações. Costuma sair em minutos, mas pode
+                levar de <strong>1 a 3 dias úteis</strong>. Esta página se atualiza sozinha.
+              </p>
+            )}
+            {detailsSubmitted && needsAction && (
+              <p>Reabra o cadastro do Stripe para corrigir ou enviar o que falta.</p>
+            )}
+          </div>
 
-          {/* Ação primária só aparece quando o creator precisa fazer alguma coisa.
-              Em awaitingStripe (Stripe verificando) NÃO mostramos botão pra reabrir
-              o cadastro — não há nada pra corrigir. */}
-          {needsAction && (
+          {/* Ações do Stripe. O botão de reabrir só aparece quando há ação a fazer
+              (em awaitingStripe não há nada a corrigir). */}
+          <div className="flex flex-col gap-3">
+            {needsAction && (
+              <button
+                type="button"
+                onClick={handleReopenOnboarding}
+                disabled={reopening}
+                className={[
+                  'group w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border-none text-white font-semibold text-[15px] bg-gradient-to-r from-[var(--color-primary)] to-[#7c3aed] shadow-lg shadow-[var(--color-primary)]/25 transition-all',
+                  reopening ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:opacity-95',
+                ].join(' ')}
+              >
+                {reopening ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Abrindo...
+                  </>
+                ) : (
+                  <>
+                    {detailsSubmitted ? 'Reabrir cadastro no Stripe' : 'Abrir cadastro no Stripe'}
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                  </>
+                )}
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={handleReopenOnboarding}
-              disabled={reopening}
+              onClick={handleCheckAgain}
+              disabled={syncing}
               className={[
-                'px-8 py-3.5 rounded-[10px] border-none bg-[var(--color-primary)] text-white font-semibold text-[15px] w-full mb-3',
-                reopening ? 'cursor-not-allowed opacity-60' : 'cursor-pointer opacity-100',
+                'w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-[var(--color-border)] bg-transparent text-[var(--color-foreground)] font-medium text-sm transition-colors',
+                syncing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-[var(--color-surface-2)]',
               ].join(' ')}
             >
-              {reopening
-                ? 'Abrindo...'
-                : detailsSubmitted
-                  ? 'Reabrir cadastro no Stripe'
-                  : 'Abrir cadastro no Stripe'}
+              <RefreshCw className={['w-4 h-4', syncing ? 'animate-spin' : ''].join(' ')} />
+              {syncing ? 'Consultando Stripe...' : 'Consultar Stripe agora'}
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={handleCheckAgain}
-            disabled={syncing}
-            className={[
-              'px-8 py-3.5 rounded-[10px] border border-[var(--color-border)] bg-transparent text-[var(--color-foreground)] font-semibold text-[15px] w-full',
-              syncing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer opacity-100',
-            ].join(' ')}
-          >
-            {syncing ? 'Consultando Stripe...' : 'Consultar Stripe agora'}
-          </button>
+          </div>
         </>
       )}
 
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="mt-8 px-6 py-3 rounded-[10px] border border-[var(--color-error,#ef4444)] bg-transparent text-[var(--color-error,#ef4444)] font-semibold cursor-pointer text-[15px] w-full"
-      >
-        Sair da conta
-      </button>
+      {/* Continuar no app + sair — sempre visíveis */}
+      <div className="mt-6 pt-6 border-t border-[var(--color-border)] flex flex-col items-center gap-3">
+        <button
+          type="button"
+          onClick={() => router.push('/home')}
+          className="group w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-semibold text-[15px] transition-colors hover:bg-[var(--color-primary)]/15 cursor-pointer"
+        >
+          Continuar para o app
+          <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+        </button>
+        <p className="text-xs text-[var(--color-muted)] text-center leading-relaxed max-w-[380px]">
+          Você já pode usar o app. Venda, conteúdo, lives e chamadas são liberadas assim que o Stripe aprovar.
+        </p>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-1 text-sm text-[var(--color-muted)] hover:text-[var(--color-error,#ef4444)] bg-transparent border-none cursor-pointer transition-colors"
+        >
+          Sair da conta
+        </button>
+      </div>
+        </div>
+      </div>
     </div>
   )
 }

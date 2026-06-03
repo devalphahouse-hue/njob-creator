@@ -8,6 +8,7 @@ import { useCreator } from '@/lib/store/app-store'
 import { toast } from 'sonner'
 import EmptyState from '@/components/ui/EmptyState'
 import { useTranslation } from '@/lib/i18n'
+import { useStripeGate } from '@/lib/hooks/useStripeGate'
 
 const base = () => process.env.NEXT_PUBLIC_SUPABASE_URL!
 
@@ -106,6 +107,7 @@ export default function FinancialPage() {
   const supabase = createClient()
   const creator = useCreator()
   const { t } = useTranslation()
+  const { ensureReady: ensureStripeReady } = useStripeGate()
   const [tab, setTab] = useState(0)
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
@@ -157,6 +159,8 @@ export default function FinancialPage() {
   const [payoutLoading, setPayoutLoading] = useState(false)
 
   const openPayoutLink = async () => {
+    // O saque usa a conta Stripe Connect — só disponível com a conta liberada.
+    if (!(await ensureStripeReady())) return
     setPayoutLoading(true)
     try {
       const { data: session } = await supabase.auth.getSession()

@@ -1,86 +1,61 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import { getCreatorInfo, isCreatorStripeReady } from '@/lib/supabase/creator'
-import { useStripePayoutRealtime } from '@/lib/hooks/useStripePayoutRealtime'
+import { getCreatorInfo } from '@/lib/supabase/creator'
 import { useAppStore } from '@/lib/store/app-store'
+import { useTranslation } from '@/lib/i18n'
 
 const MAX_RETRIES = 3
 
 /**
- * Carrega os dados do creator na store quando há sessão e creator ainda não foi carregado.
- * Pula carregamento para convidados (sem sessão Supabase).
+ * Carrega os dados do creator na store quando há sessão e creator ainda não foi
+ * carregado. Pula carregamento para convidados (sem sessão Supabase).
  *
- * Gate do Stripe: usa creator_payout_info.account_details (campos do Stripe
- * — charges_enabled, payouts_enabled, disabled_reason) como única fonte de
- * verdade. Status local 'COMPLETED' não basta. Subscribe em realtime para
- * reagir quando o webhook do Stripe atualizar a conta — aprovação/rejeição
- * refletem na UI sem refresh.
+ * O acesso ao app NÃO depende mais do Stripe: o creator entra normalmente mesmo
+ * sem a conta aprovada. As features que tocam Stripe (vender, conteúdo, lives,
+ * ficar online) são travadas individualmente via useStripeGateState/useStripeGate,
+ * e o status em tempo real + banner ficam no StripeGateProvider.
  */
 export default function CreatorLoader() {
   const creator = useAppStore((s) => s.creator)
   const isGuest = useAppStore((s) => s.isGuest)
   const setCreator = useAppStore((s) => s.setCreator)
   const loadingRef = useRef(false)
-  const router = useRouter()
-  const pathname = usePathname()
+  const deletionCheckedRef = useRef(false)
+  const { t } = useTranslation()
 
-  const [userId, setUserId] = useState<string | null>(null)
-  const { gate } = useStripePayoutRealtime(userId)
-
-  // Carrega o user.id uma vez para iniciar o realtime do payout.
+  // Cancelamento automático: se a conta está pendente de exclusão, o login
+  // dentro dos 30 dias reativa a conta. Roda uma vez por sessão do app.
   useEffect(() => {
-    if (isGuest) return
+    if (isGuest || deletionCheckedRef.current) return
+    deletionCheckedRef.current = true
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.id) setUserId(user.id)
-    })
-  }, [isGuest])
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.id) { deletionCheckedRef.current = false; return }
+      const { data } = await supabase
+        .from('profiles')
+        .select('deletion_requested_at, deleted_at')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (data?.deletion_requested_at && !data.deleted_at) {
+        const { error } = await supabase.rpc('fn_cancel_account_deletion')
+        if (!error) toast.success(t('profile.deleteAccount.canceled'))
+      }
+    })().catch(() => { /* não crítico */ })
+  }, [isGuest, t])
 
-  // Reage ao estado do Stripe em tempo real:
-  // - Se o creator está dentro do app e o Stripe foi rejeitado/expirou → manda pra /stripe-setup
-  // - Se o creator está em /stripe-setup e o Stripe acabou de aprovar → manda pra /home
-  useEffect(() => {
-    if (!gate || isGuest) return
-    const onSetup = pathname?.startsWith('/stripe-setup')
-
-    if (gate.ready && onSetup) {
-      // O redirect + toast quando aprovado fica na própria página /stripe-setup
-      // (ela é a "dona" desse fluxo). Aqui só evitamos render duplicado:
-      // se o usuário já está em /stripe-setup, deixamos a página decidir.
-      return
-    }
-
-    if (!gate.ready && !onSetup) {
-      router.replace('/stripe-setup')
-      return
-    }
-  }, [gate, isGuest, pathname, router])
-
-  // Carregamento inicial do CreatorData. Só roda quando o Stripe está realmente
-  // liberado (gate.ready) — antes disso o usuário está na /stripe-setup.
+  // Carregamento inicial do CreatorData — sempre que há sessão (independe do Stripe).
   useEffect(() => {
     if (creator != null || isGuest || loadingRef.current) return
-    if (!gate || !gate.ready) return
-
-    const onSetup = pathname?.startsWith('/stripe-setup')
-    if (onSetup) return
-
     loadingRef.current = true
 
     const load = async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { loadingRef.current = false; return }
-
-      // Double-check com fonte de verdade do Stripe antes de hidratar o store.
-      if (!isCreatorStripeReady(gate.status === 'COMPLETED' ? 'COMPLETED' : null, gate.accountDetails)) {
-        router.replace('/stripe-setup')
-        return
-      }
 
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
@@ -101,7 +76,7 @@ export default function CreatorLoader() {
     load().catch(() => {
       loadingRef.current = false
     })
-  }, [creator, isGuest, gate, pathname, setCreator, router])
+  }, [creator, isGuest, setCreator])
 
   return null
 }

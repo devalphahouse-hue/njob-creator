@@ -9,6 +9,8 @@ import { useTranslation } from '@/lib/i18n'
 import { getPacksByCreator, type PackListItem } from '@/lib/api/content'
 import EmptyState from '@/components/ui/EmptyState'
 import { Filter, Plus } from 'lucide-react'
+import { useStripeGateState } from '@/components/stripe/StripeGateProvider'
+import { useStripeGate } from '@/lib/hooks/useStripeGate'
 
 interface AppliedFilters {
   hasPhoto: boolean | null
@@ -33,6 +35,8 @@ export default function ContentPage() {
   const creator = useCreator()
   const router = useRouter()
   const { t } = useTranslation()
+  const { ready: stripeReady } = useStripeGateState()
+  const { ensureReady: ensureStripeReady } = useStripeGate()
 
   // Filtros aplicados (usados para filtrar a lista)
   const [applied, setApplied] = useState<AppliedFilters>(emptyFilters)
@@ -245,9 +249,16 @@ export default function ContentPage() {
       <div className="fixed bottom-[88px] right-5 z-40">
         <button
           type="button"
-          onClick={() => router.push('/content/create')}
-          aria-label="Criar pacote"
-          className="w-14 h-14 rounded-full border-none bg-[var(--color-primary)] text-white cursor-pointer flex items-center justify-center"
+          onClick={async () => {
+            if (!(await ensureStripeReady())) return
+            router.push('/content/create')
+          }}
+          aria-label={t('content.createPackage')}
+          title={stripeReady ? t('content.createPackage') : t('content.stripeLockedHint')}
+          className={[
+            'w-14 h-14 rounded-full border-none bg-[var(--color-primary)] text-white flex items-center justify-center',
+            stripeReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
+          ].join(' ')}
         >
           <Plus size={24} strokeWidth={2.5} />
         </button>
