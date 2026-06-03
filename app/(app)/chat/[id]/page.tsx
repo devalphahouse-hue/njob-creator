@@ -10,6 +10,10 @@ import { ArrowLeft, Send, Check, CheckCheck } from 'lucide-react'
 type MessageRow = Database['public']['Views']['vw_messages']['Row']
 type ConversationRow = Database['public']['Views']['vw_creator_conversations']['Row']
 
+// Paginação estilo WhatsApp: carrega as N mais recentes e busca lotes antigos
+// conforme o usuário rola para o topo.
+const PAGE_SIZE = 30
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatTime(iso: string | null): string {
@@ -125,8 +129,11 @@ export default function ChatConversationPage() {
   const [peerAvatarUrl, setPeerAvatarUrl] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false)
+  const [hasMoreOlder, setHasMoreOlder] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   // Meu cleared_at nesta conversa: oculta mensagens anteriores à exclusão.
   const clearedAtRef = useRef<string | null>(null)
 
@@ -134,28 +141,113 @@ export default function ChatConversationPage() {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior }), 60)
   }, [])
 
-  const fetchMessages = useCallback(async () => {
+  // Está perto do fim? (decide se auto-rola ao chegar mensagem nova)
+  const isNearBottom = useCallback((): boolean => {
+    const c = scrollRef.current
+    if (!c) return true
+    return c.scrollHeight - c.scrollTop - c.clientHeight < 120
+  }, [])
+
+  const applyClearedFilter = useCallback((rows: MessageRow[]): MessageRow[] => {
+    const cleared = clearedAtRef.current
+    if (!cleared) return rows
+    const clearedMs = new Date(cleared).getTime()
+    return rows.filter((m) => !!m.created_at && new Date(m.created_at).getTime() > clearedMs)
+  }, [])
+
+  // Mescla lotes por message_id mantendo ordem cronológica; preserva o histórico
+  // já carregado ao paginar e atualiza recibos de leitura na janela recente.
+  const mergeRows = useCallback((incoming: MessageRow[]) => {
+    setMessages((prev) => {
+      const map = new Map<string, MessageRow>()
+      for (const m of prev) if (m.message_id) map.set(m.message_id, m)
+      for (const m of incoming) if (m.message_id) map.set(m.message_id, m)
+      return Array.from(map.values()).sort((a, b) => {
+        const ta = a.created_at ? new Date(a.created_at).getTime() : 0
+        const tb = b.created_at ? new Date(b.created_at).getTime() : 0
+        return ta - tb
+      })
+    })
+  }, [])
+
+  // Carga inicial: PAGE_SIZE mais recentes (substitui a lista).
+  const loadInitial = useCallback(async () => {
     if (!id) return
-    const { data, error } = await supabase
+    let q = supabase
       .from('vw_messages')
       .select('*')
       .eq('conversation_id', id)
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(PAGE_SIZE)
+    if (clearedAtRef.current) q = q.gt('created_at', clearedAtRef.current)
+    const { data, error } = await q
     if (error) {
       console.error('[Chat]', error)
       setMessages([])
+      setHasMoreOlder(false)
       return
     }
-    // .order desc + .limit(100) pega as 100 mais recentes; reverso para exibir cronológico.
-    let rows = ((data ?? []) as MessageRow[]).reverse()
-    const cleared = clearedAtRef.current
-    if (cleared) {
-      const clearedMs = new Date(cleared).getTime()
-      rows = rows.filter((m) => !!m.created_at && new Date(m.created_at).getTime() > clearedMs)
-    }
-    setMessages(rows)
+    const rawDesc = (data ?? []) as MessageRow[]
+    setHasMoreOlder(rawDesc.length === PAGE_SIZE)
+    setMessages(rawDesc.slice().reverse())
   }, [id, supabase])
+
+  // Sincroniza só a janela recente e mescla (poll + realtime), sem descartar o
+  // histórico já carregado nem mexer no scroll do usuário.
+  const syncRecent = useCallback(async () => {
+    if (!id) return
+    let q = supabase
+      .from('vw_messages')
+      .select('*')
+      .eq('conversation_id', id)
+      .order('created_at', { ascending: false })
+      .limit(PAGE_SIZE)
+    if (clearedAtRef.current) q = q.gt('created_at', clearedAtRef.current)
+    const { data, error } = await q
+    if (error) return
+    const rawDesc = (data ?? []) as MessageRow[]
+    mergeRows(applyClearedFilter(rawDesc.slice().reverse()))
+  }, [id, supabase, mergeRows, applyClearedFilter])
+
+  // Carrega lote mais antigo ao rolar para o topo, preservando a posição.
+  const loadOlder = useCallback(async () => {
+    if (!id || isLoadingOlder || !hasMoreOlder) return
+    const oldest = messages[0]?.created_at
+    if (!oldest) return
+    setIsLoadingOlder(true)
+    const container = scrollRef.current
+    const prevHeight = container?.scrollHeight ?? 0
+    const prevTop = container?.scrollTop ?? 0
+    let q = supabase
+      .from('vw_messages')
+      .select('*')
+      .eq('conversation_id', id)
+      .lt('created_at', oldest)
+      .order('created_at', { ascending: false })
+      .limit(PAGE_SIZE)
+    if (clearedAtRef.current) q = q.gt('created_at', clearedAtRef.current)
+    const { data, error } = await q
+    if (!error) {
+      const rawDesc = (data ?? []) as MessageRow[]
+      setHasMoreOlder(rawDesc.length === PAGE_SIZE)
+      if (rawDesc.length > 0) {
+        mergeRows(rawDesc)
+        requestAnimationFrame(() => {
+          const c = scrollRef.current
+          if (c) c.scrollTop = c.scrollHeight - prevHeight + prevTop
+        })
+      }
+    }
+    setIsLoadingOlder(false)
+  }, [id, isLoadingOlder, hasMoreOlder, messages, supabase, mergeRows])
+
+  const handleScroll = useCallback(() => {
+    const c = scrollRef.current
+    if (!c) return
+    if (c.scrollTop <= 60 && hasMoreOlder && !isLoadingOlder) {
+      void loadOlder()
+    }
+  }, [hasMoreOlder, isLoadingOlder, loadOlder])
 
   useEffect(() => {
     if (!id) return
@@ -183,7 +275,7 @@ export default function ChatConversationPage() {
         .eq('profile_id', uid)
         .maybeSingle()
       clearedAtRef.current = (part as { cleared_at: string | null } | null)?.cleared_at ?? null
-      await fetchMessages()
+      await loadInitial()
       await supabase
         .from('conversation_participants')
         .update({ last_read_at: new Date().toISOString() })
@@ -195,7 +287,7 @@ export default function ChatConversationPage() {
       }
     })()
     return () => { cancelled = true }
-  }, [id, supabase, fetchMessages, scrollToBottom])
+  }, [id, supabase, loadInitial, scrollToBottom])
 
   useEffect(() => {
     if (!id) return
@@ -204,8 +296,14 @@ export default function ChatConversationPage() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` },
-        () => {
-          fetchMessages().then(() => scrollToBottom())
+        (payload) => {
+          // Só auto-rola se já estava perto do fim (ou se a msg é minha), para
+          // não interromper a leitura de mensagens antigas paginadas.
+          const raw = payload.new as { sender_id?: string } | null
+          const stick = isNearBottom() || raw?.sender_id === userId
+          void syncRecent().then(() => {
+            if (stick) scrollToBottom()
+          })
         },
       )
       .subscribe((status) => {
@@ -217,18 +315,14 @@ export default function ChatConversationPage() {
     // mensagens novas do outro lado apareçam mesmo se postgres_changes falhar.
     const pollId = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
-        void fetchMessages()
+        void syncRecent()
       }
     }, 4000)
     return () => {
       supabase.removeChannel(channel)
       window.clearInterval(pollId)
     }
-  }, [id, supabase, fetchMessages, scrollToBottom])
-
-  useEffect(() => {
-    scrollToBottom('auto')
-  }, [messages.length, scrollToBottom])
+  }, [id, supabase, syncRecent, scrollToBottom, isNearBottom, userId])
 
   function handleInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
     setInput(e.target.value)
@@ -256,7 +350,7 @@ export default function ChatConversationPage() {
       setInput(text)
       return
     }
-    await fetchMessages()
+    await syncRecent()
     scrollToBottom()
   }
 
@@ -292,8 +386,13 @@ export default function ChatConversationPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-4 py-3">
+          {isLoadingOlder && (
+            <div className="flex justify-center py-3">
+              <div className="w-5 h-5 border-2 border-[var(--color-muted)] border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
           {loading ? (
             <div className="p-6 text-center text-[var(--color-muted)]">{t('common.loading')}</div>
           ) : messages.length === 0 ? (
