@@ -8,10 +8,10 @@ import { createPackWithItems, createStripePack } from '@/lib/api/content'
 import { uploadPackCover, uploadPackItem } from '@/lib/storage/packs'
 import { toast } from 'sonner'
 import { useTranslation, getLocaleBcp47 } from '@/lib/i18n'
+import { useStripeGateState } from '@/components/stripe/StripeGateProvider'
+import { useStripeGate } from '@/lib/hooks/useStripeGate'
 
 // ─── Currency helpers ──────────────────────────────────────────────
-
-const MIN_PRICE = 10
 
 function formatCurrencyBRL(raw: string, bcp47 = 'pt-BR'): string {
   const digits = raw.replace(/\D/g, '')
@@ -39,6 +39,8 @@ export default function ContentCreatePage() {
   const queryClient = useQueryClient()
   const { t: tFn, locale } = useTranslation()
   const bcp47 = getLocaleBcp47(locale)
+  const { ready: stripeReady } = useStripeGateState()
+  const { ensureReady: ensureStripeReady } = useStripeGate()
   const [title, setTitle] = useState('')
   const [price, setPrice] = useState('')
   const [priceError, setPriceError] = useState(false)
@@ -73,15 +75,17 @@ export default function ContentCreatePage() {
   const removeVideo = (i: number) => setVideoFiles((prev) => prev.filter((_, idx) => idx !== i))
 
   const submit = async () => {
+    // Trava do Stripe: criar conteúdo/pack gera produto no Stripe e venda.
+    if (!(await ensureStripeReady())) return
     const titleTrimmed = title.trim()
     const p = parseCurrencyBRL(price)
     if (!titleTrimmed) {
       toast.error(tFn('content.titleRequired'))
       return
     }
-    if (p < MIN_PRICE) {
+    if (p <= 0) {
       setPriceError(true)
-      toast.error(`${tFn('content.price')} mín. R$ ${MIN_PRICE},00`)
+      toast.error(tFn('register.minValue'))
       return
     }
     const { data: { user } } = await supabase.auth.getUser()
@@ -244,7 +248,7 @@ export default function ContentCreatePage() {
             inputMode="numeric"
             value={price}
             onChange={(e) => { setPrice(formatCurrencyBRL(e.target.value, bcp47)); setPriceError(false) }}
-            onBlur={() => { if (price && parseCurrencyBRL(price) < MIN_PRICE) setPriceError(true) }}
+            onBlur={() => { if (price && parseCurrencyBRL(price) <= 0) setPriceError(true) }}
             placeholder={new Intl.NumberFormat(bcp47, { style: 'currency', currency: 'BRL' }).format(0)}
             className={[inputCls, priceError ? 'border-[var(--color-error)]' : ''].join(' ')}
           />
@@ -266,15 +270,20 @@ export default function ContentCreatePage() {
           <button
             type="button"
             onClick={submit}
-            disabled={loading}
+            disabled={loading || !stripeReady}
             className={[
               'px-5 py-2.5 rounded-lg border-none bg-[var(--color-primary)] text-white font-semibold text-sm',
-              loading ? 'cursor-not-allowed' : 'cursor-pointer',
+              loading || !stripeReady ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
             ].join(' ')}
           >
             {loading ? tFn('events.creating') : tFn('content.publish')}
           </button>
         </div>
+        {!stripeReady && (
+          <p className="text-xs text-[var(--color-muted)] -mt-1">
+            {tFn('content.stripeLockedHint')}
+          </p>
+        )}
       </div>
     </div>
   )

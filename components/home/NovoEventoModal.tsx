@@ -58,8 +58,6 @@ function parseCurrencyBRL(raw: string): number {
   return parseFloat(cleaned) || 0
 }
 
-const MIN_VALOR_REAIS = 10
-
 function formatCurrencyBRL(raw: string, bcp47 = 'pt-BR'): string {
   const digits = raw.replace(/\D/g, '')
   if (!digits) return ''
@@ -71,12 +69,12 @@ function formatCurrencyBRL(raw: string, bcp47 = 'pt-BR'): string {
   }).format(num)
 }
 
-function formatMinCurrency(bcp47 = 'pt-BR'): string {
+function formatZeroCurrency(bcp47 = 'pt-BR'): string {
   return new Intl.NumberFormat(bcp47, {
     style: 'currency',
     currency: 'BRL',
     minimumFractionDigits: 2,
-  }).format(MIN_VALOR_REAIS)
+  }).format(0)
 }
 
 function maskTime(raw: string): string {
@@ -201,7 +199,7 @@ export default function NovoEventoModal({ isOpen, onClose, onRefresh, initialDat
 
   const handleValorBlur = () => {
     const num = parseCurrencyBRL(valorRaw)
-    if (valorRaw && num < MIN_VALOR_REAIS) {
+    if (valorRaw && num <= 0) {
       setErroValor(true)
     }
   }
@@ -248,7 +246,7 @@ export default function NovoEventoModal({ isOpen, onClose, onRefresh, initialDat
     if (!duracao) { setErroDuracao(true); hasError = true }
 
     const valorNum = parseCurrencyBRL(valorRaw)
-    if (valorNum < MIN_VALOR_REAIS) { setErroValor(true); hasError = true }
+    if (valorNum <= 0) { setErroValor(true); hasError = true }
 
     if (!dataSelecionada) { setErroData(true); hasError = true }
 
@@ -479,7 +477,7 @@ export default function NovoEventoModal({ isOpen, onClose, onRefresh, initialDat
                 id="novo-evento-valor"
                 type="text"
                 inputMode="numeric"
-                placeholder={formatMinCurrency(bcp47)}
+                placeholder={formatZeroCurrency(bcp47)}
                 value={valorRaw}
                 onChange={handleValorChange}
                 onBlur={(e) => { handleValorBlur(); handleBlurStyle(e, erroValor) }}
@@ -489,7 +487,7 @@ export default function NovoEventoModal({ isOpen, onClose, onRefresh, initialDat
               />
               {erroValor && (
                 <span className="text-[var(--color-error)] text-xs mt-1 block">
-                  {t('events.minPriceHint', { value: formatMinCurrency(bcp47) })}
+                  {t('register.minValue')}
                 </span>
               )}
             </div>

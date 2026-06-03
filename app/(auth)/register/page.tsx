@@ -336,8 +336,8 @@ export default function RegisterPage() {
       if (formData.fazVideochamada) {
         const v30 = parseCurrency(formData.valor30min)
         const v1h = parseCurrency(formData.valor1hora)
-        if (v30 < 10) newErrors.valor30min = t('register.minValue')
-        if (v1h < 10) newErrors.valor1hora = t('register.minValue')
+        if (v30 <= 0) newErrors.valor30min = t('register.minValue')
+        if (v1h <= 0) newErrors.valor1hora = t('register.minValue')
       }
     }
 

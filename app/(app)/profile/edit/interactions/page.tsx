@@ -181,8 +181,8 @@ export default function AlterarInteracoesPage() {
       const v30 = parseCurrency(valor30min)
       const v1h = parseCurrency(valor1hora)
       const newErrors: { valor30min?: string; valor1hora?: string } = {}
-      if (v30 < 10) newErrors.valor30min = t('register.minValue')
-      if (v1h < 10) newErrors.valor1hora = t('register.minValue')
+      if (v30 <= 0) newErrors.valor30min = t('register.minValue')
+      if (v1h <= 0) newErrors.valor1hora = t('register.minValue')
       setErrors(newErrors)
       if (Object.keys(newErrors).length > 0) return
     } else {
