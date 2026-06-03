@@ -3,11 +3,11 @@ export default function OnboardingLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Layout-canvas mínimo: cada página de onboarding controla a própria largura/
+  // centralização (stripe-setup usa split full-bleed; subscription se auto-centra).
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--color-background)]">
-      <div className="w-full max-w-md">
-        {children}
-      </div>
+    <div className="min-h-screen bg-[var(--color-background)]">
+      {children}
     </div>
   )
 }

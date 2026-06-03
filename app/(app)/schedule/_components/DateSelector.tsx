@@ -1,7 +1,5 @@
 'use client'
 
-import Link from 'next/link'
-import { Pencil } from 'lucide-react'
 import CalendarioEventos from '@/components/schedule/CalendarioEventos'
 import type { Database } from '@/lib/types/database'
 
@@ -19,7 +17,6 @@ interface DateSelectorProps {
   tDay: string
   tWeek: string
   tMonth: string
-  tDetails: string
 }
 
 export function DateSelector({
@@ -33,15 +30,12 @@ export function DateSelector({
   tDay,
   tWeek,
   tMonth,
-  tDetails,
 }: DateSelectorProps) {
   const tabs: { key: TabCalendario; label: string }[] = [
     { key: 'day', label: tDay },
     { key: 'week', label: tWeek },
     { key: 'month', label: tMonth },
   ]
-
-  const availabilityHref = `/schedule/availability?date=${dataSelect.getFullYear()}-${String(dataSelect.getMonth() + 1).padStart(2, '0')}-${String(dataSelect.getDate()).padStart(2, '0')}`
 
   return (
     <>
@@ -80,18 +74,11 @@ export function DateSelector({
         </div>
       )}
 
-      {/* Selected date + link Disponibilidade */}
-      <div className="flex justify-between items-center mb-4">
+      {/* Selected date */}
+      <div className="flex items-center mb-4">
         <span className="font-semibold text-[var(--color-foreground)] text-sm">
           {formatDDMMY(dataSelect)}
         </span>
-        <Link
-          href={availabilityHref}
-          className="flex items-center gap-[10px] text-[var(--color-primary)] text-xs font-bold no-underline"
-        >
-          <Pencil size={16} />
-          {tDetails}
-        </Link>
       </div>
     </>
   )

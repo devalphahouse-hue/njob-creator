@@ -178,7 +178,6 @@ export default function SchedulePage() {
           tDay={t('schedule.day')}
           tWeek={t('schedule.week')}
           tMonth={t('schedule.month')}
-          tDetails={t('schedule.details')}
         />
 
         <EventList

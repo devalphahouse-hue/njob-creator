@@ -61,7 +61,7 @@ export default function OnboardingSubscriptionPage() {
   }
 
   return (
-    <div className="max-w-[480px] mx-auto p-6">
+    <div className="min-h-screen flex flex-col justify-center max-w-[480px] mx-auto p-6">
       <h1 className="text-[22px] font-semibold mb-2">{t('onboarding.choosePlan')}</h1>
       <p className="text-[var(--color-muted)] text-sm mb-6">
         {t('onboarding.firstAccessSubscription')}
