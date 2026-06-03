@@ -9,7 +9,8 @@ import { createClient } from '@/lib/supabase/client'
 import { getCreatorInfo } from '@/lib/supabase/creator'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n'
-import { User, ChevronRight, Info, XCircle, LogOut, DollarSign, Loader2 } from 'lucide-react'
+import { User, ChevronRight, Info, Trash2, LogOut, DollarSign, Loader2 } from 'lucide-react'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 // ─── Menu Item ────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,8 @@ export default function ProfilePage() {
   const { t } = useTranslation()
 
   const [financeiroLoading, setFinanceiroLoading] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Refetch creator data to keep store fresh
   useQuery({
@@ -135,8 +138,22 @@ export default function ProfilePage() {
     }
   }
 
-  const handleInativarConta = () => {
-    toast.error(t('profile.featureUnavailable'))
+  const handleDeleteAccount = async () => {
+    if (deleting) return
+    setDeleting(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.rpc('fn_request_account_deletion')
+      if (error) throw error
+      setDeleteOpen(false)
+      toast.success(t('profile.deleteAccount.success'))
+      await supabase.auth.signOut()
+      router.push('/login')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('profile.deleteAccount.error'))
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const handleLogout = async () => {
@@ -211,9 +228,9 @@ export default function ProfilePage() {
         />
         <Divider />
         <MenuItem
-          icon={<XCircle size={20} strokeWidth={2} />}
-          label={t('profile.deactivateAccount')}
-          onClick={handleInativarConta}
+          icon={<Trash2 size={20} strokeWidth={2} />}
+          label={t('profile.deleteAccount.menuLabel')}
+          onClick={() => setDeleteOpen(true)}
           danger
         />
         <Divider />
@@ -224,6 +241,17 @@ export default function ProfilePage() {
           danger
         />
       </div>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        title={t('profile.deleteAccount.title')}
+        message={t('profile.deleteAccount.body')}
+        confirmLabel={t('profile.deleteAccount.confirm')}
+        cancelLabel={t('profile.deleteAccount.cancel')}
+        destructive
+        onConfirm={handleDeleteAccount}
+        onCancel={() => { if (!deleting) setDeleteOpen(false) }}
+      />
     </div>
   )
 }
