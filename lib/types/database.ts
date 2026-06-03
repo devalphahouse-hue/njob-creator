@@ -1516,6 +1516,8 @@ export type Database = {
           updated_at: string | null
           username: string | null
           whatsapp: string | null
+          deletion_requested_at: string | null
+          deleted_at: string | null
         }
         Insert: {
           aprove?: string | null
@@ -1531,6 +1533,8 @@ export type Database = {
           updated_at?: string | null
           username?: string | null
           whatsapp?: string | null
+          deletion_requested_at?: string | null
+          deleted_at?: string | null
         }
         Update: {
           aprove?: string | null
@@ -1546,6 +1550,8 @@ export type Database = {
           updated_at?: string | null
           username?: string | null
           whatsapp?: string | null
+          deletion_requested_at?: string | null
+          deleted_at?: string | null
         }
         Relationships: []
       }
@@ -1733,6 +1739,7 @@ export type Database = {
           conversation_id: string | null
           last_message: string | null
           last_message_created_at: string | null
+          last_message_locked: boolean | null
           last_message_read_by_client: boolean | null
           last_message_time: string | null
           peer_avatar_url: string | null
@@ -1781,6 +1788,8 @@ export type Database = {
           content: string | null
           conversation_id: string | null
           created_at: string | null
+          creator_id: string | null
+          is_locked: boolean | null
           is_read_by_client: boolean | null
           is_read_by_creator: boolean | null
           message_id: string | null
@@ -1833,6 +1842,8 @@ export type Database = {
       }
     }
     Functions: {
+      fn_request_account_deletion: { Args: never; Returns: string }
+      fn_cancel_account_deletion: { Args: never; Returns: boolean }
       fn_create_call_request: {
         Args: { p_creator_id: string; p_duration_minutes: number }
         Returns: Database["public"]["Tables"]["one_on_one_calls"]["Row"]
