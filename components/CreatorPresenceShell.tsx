@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useCreator } from '@/lib/store/app-store'
 import { useCreatorPresence } from '@/lib/hooks/useCreatorPresence'
 import { useIdleTimeout } from '@/lib/hooks/useIdleTimeout'
+import { useCreatorBusy } from '@/lib/hooks/useCreatorBusy'
 import { IncomingCallRequestModal } from '@/components/home/IncomingCallRequestModal'
 import { ActiveCallCTA } from '@/components/home/ActiveCallCTA'
 import { IDLE_TIMEOUT_MS } from '@/lib/constants/call-windows'
@@ -27,8 +28,12 @@ export default function CreatorPresenceShell() {
 
   useCreatorPresence(userId, isOnline)
 
+  // Enquanto ocupado (live no ar / chamada 1-a-1 ativa), o creator não pode
+  // cair offline — nem por inatividade.
+  const { busy } = useCreatorBusy(userId)
+
   const handleIdle = useCallback(async () => {
-    if (!userId || !isOnline) return
+    if (!userId || !isOnline || busy) return
     const supabase = createClient()
     const nowIso = new Date().toISOString()
     await supabase
@@ -50,7 +55,7 @@ export default function CreatorPresenceShell() {
     // A store será reidratada no próximo fetch — para refletir imediatamente,
     // recarregamos a página atual no segmento home (barato).
     window.dispatchEvent(new CustomEvent('creator-presence-forced-offline'))
-  }, [userId, isOnline])
+  }, [userId, isOnline, busy])
 
   useIdleTimeout(IDLE_TIMEOUT_MS, isOnline, handleIdle)
 

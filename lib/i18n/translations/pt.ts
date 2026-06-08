@@ -243,6 +243,8 @@ const pt = {
     // Erros
     errorUpdateOnline: 'Não foi possível atualizar. Tente de novo.',
     errorUpdateStatus: 'Erro ao atualizar status.',
+    cannotGoOfflineLive: 'Você está com uma live no ar. Encerre a live para ficar offline.',
+    cannotGoOfflineCall: 'Você está em uma videochamada. Finalize a chamada para ficar offline.',
     cameraRequired: 'Câmera e microfone são necessários para a live. Você pode permitir nas configurações do navegador e tentar novamente.',
     cameraWarning: 'Não foi possível acessar câmera ou microfone. Abrindo mesmo assim.',
   },

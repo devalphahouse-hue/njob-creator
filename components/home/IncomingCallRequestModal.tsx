@@ -54,7 +54,13 @@ export function IncomingCallRequestModal() {
         .eq('id', current.id)
 
       if (error) {
-        toast.error('Não foi possível aceitar: ' + error.message)
+        // Exclusividade 1-a-1: o trigger recusa aceitar uma 2ª chamada
+        // enquanto outra já está ativa.
+        toast.error(
+          error.message.includes('creator_busy')
+            ? 'Você já está em outra videochamada. Finalize-a antes de aceitar outra.'
+            : 'Não foi possível aceitar: ' + error.message,
+        )
       } else {
         toast.success('Videochamada aceita — aguardando pagamento')
         await refetch()

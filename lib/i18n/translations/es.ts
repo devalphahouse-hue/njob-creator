@@ -220,6 +220,8 @@ const es: Translations = {
     last30days: 'últimos 30 días',
     errorUpdateOnline: 'No fue posible actualizar. Inténtalo de nuevo.',
     errorUpdateStatus: 'Error al actualizar el estado.',
+    cannotGoOfflineLive: 'Tienes una transmisión en vivo. Finalízala para quedar offline.',
+    cannotGoOfflineCall: 'Estás en una videollamada. Finaliza la llamada para quedar offline.',
     cameraRequired: 'Se necesitan cámara y micrófono para la live. Puedes permitirlos en la configuración del navegador e intentarlo de nuevo.',
     cameraWarning: 'No fue posible acceder a la cámara o al micrófono. Abriendo de todos modos.',
   },

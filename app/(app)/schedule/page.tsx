@@ -226,7 +226,7 @@ export default function SchedulePage() {
           clientName={detCallInfo?.clientName || detalhesEvento.event_name || '-'}
           duration={`${detalhesEvento.duration_min ?? '-'} min`}
           value={detalhesEvento.ticket_price ?? undefined}
-          date={formatDDMMY(new Date(detalhesEvento.start_date ?? ''))}
+          date={eventDateKeyLocal(detalhesEvento.start_date, detalhesEvento.time)}
           time={formatTimeLocal(eventTimeISO(detalhesEvento) || undefined, getLocaleBcp47(locale))}
           typeEvent={(detalhesEvento.event_type ?? 'call') as 'live' | 'call'}
           eventId={detalhesEvento.event_id}

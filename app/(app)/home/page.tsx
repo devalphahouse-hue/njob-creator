@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -19,6 +19,7 @@ import {
 } from '@/lib/utils/datetime'
 import { useLiveStreamCleanup } from '@/lib/hooks/useLiveStreamCleanup'
 import { useStripeGate } from '@/lib/hooks/useStripeGate'
+import { useCreatorBusy } from '@/lib/hooks/useCreatorBusy'
 
 import { HomeHeader } from './_components/HomeHeader'
 import { TodayEvents } from './_components/TodayEvents'
@@ -74,6 +75,14 @@ export default function HomePage() {
   // Modal state
   const [modalOpen, setModalOpen] = useState(false)
   const [onlineUpdating, setOnlineUpdating] = useState(false)
+
+  // userId para detectar "ocupado" (live ativa / chamada 1-a-1). CreatorData.profile
+  // não carrega o id, então buscamos via auth.
+  const [userId, setUserId] = useState<string | null>(null)
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null))
+  }, [supabase])
+  const { busy, reason: busyReason } = useCreatorBusy(userId)
 
   // ─── Query: eventos do dia ──────────────────────────────────────
 
@@ -258,6 +267,16 @@ export default function HomePage() {
     async (isOnline: boolean) => {
       if (!requireAuth()) return
       if (!creator) return
+      // Não pode ficar offline enquanto ocupado (live no ar ou chamada 1-a-1
+      // ativa). Só libera quando a live/chamada encerra.
+      if (!isOnline && busy) {
+        toast.error(
+          busyReason === 'live'
+            ? t('home.cannotGoOfflineLive')
+            : t('home.cannotGoOfflineCall'),
+        )
+        return
+      }
       // Ligar online expõe o creator pra videochamadas pagas — exige Stripe ready.
       // Desligar não tem efeito de cobrança, deixa passar.
       if (isOnline && !(await ensureStripeReady())) return
@@ -344,7 +363,7 @@ export default function HomePage() {
         setOnlineUpdating(false)
       }
     },
-    [creator, supabase, setCreator, requireAuth, ensureStripeReady, t]
+    [creator, supabase, setCreator, requireAuth, ensureStripeReady, t, busy, busyReason]
   )
 
   const handleCreateEvent = useCallback(async () => {
@@ -373,6 +392,7 @@ export default function HomePage() {
           userName={userName}
           isOnline={creator?.profile?.is_available_for_calls ?? false}
           onlineUpdating={onlineUpdating}
+          onlineLocked={busy}
           unreadCount={unreadCount}
           onOnlineChange={handleOnlineChange}
           onNotificationsClick={() => router.push('/notifications')}

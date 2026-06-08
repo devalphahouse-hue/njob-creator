@@ -11,6 +11,8 @@ interface HomeHeaderProps {
   userName: string | null
   isOnline: boolean
   onlineUpdating: boolean
+  /** Trava o toggle (não pode ficar offline) — live no ar ou chamada 1-a-1 ativa. */
+  onlineLocked?: boolean
   unreadCount: number
   onOnlineChange: (isActive: boolean) => void
   onNotificationsClick: () => void
@@ -23,6 +25,7 @@ export function HomeHeader({
   userName,
   isOnline,
   onlineUpdating,
+  onlineLocked = false,
   unreadCount,
   onOnlineChange,
   onNotificationsClick,
@@ -66,7 +69,7 @@ export function HomeHeader({
             <ToggleOnline
               value={isOnline}
               onChange={onOnlineChange}
-              disabled={onlineUpdating}
+              disabled={onlineUpdating || onlineLocked}
             />
           </div>
 

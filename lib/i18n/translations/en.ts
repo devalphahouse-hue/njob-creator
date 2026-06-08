@@ -220,6 +220,8 @@ const en: Translations = {
     last30days: 'last 30 days',
     errorUpdateOnline: 'Could not update. Try again.',
     errorUpdateStatus: 'Error updating status.',
+    cannotGoOfflineLive: 'You have a live in progress. End the live to go offline.',
+    cannotGoOfflineCall: 'You are in a video call. Finish the call to go offline.',
     cameraRequired: 'Camera and microphone are required for the live. You can allow them in your browser settings and try again.',
     cameraWarning: 'Could not access camera or microphone. Opening anyway.',
   },
