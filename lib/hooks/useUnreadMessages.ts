@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { useCreator } from '@/lib/store/app-store'
 
 const QUERY_KEY = ['vw_creator_conversations', 'unread-total'] as const
 
@@ -28,10 +27,11 @@ async function fetchUnreadTotal(): Promise<number> {
  * já existentes (ConversationList e a sala de chat) também atualizam o badge.
  */
 export function useUnreadMessagesCount(): number {
-  const creator = useCreator()
+  // Sem gate em `creator`: roda sempre dentro do app (a queryFn resolve o
+  // usuário via auth.getUser e retorna 0 se não houver). Assim o badge aparece
+  // em qualquer página, sem janela de "creator ainda carregando".
   const { data: total = 0 } = useQuery({
     queryKey: QUERY_KEY,
-    enabled: !!creator,
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
     queryFn: fetchUnreadTotal,
