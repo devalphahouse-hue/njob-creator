@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, ChangeEvent, FormEvent } from 'react'
+import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -12,12 +12,24 @@ import SelectField from '@/components/ui/SelectField'
 import StepProgress from '@/components/ui/StepProgress'
 import PageHeader from '@/components/ui/PageHeader'
 import DicasFotosModal from '@/components/ui/DicasFotosModal'
+import PhotoSourceSheet from '@/components/ui/PhotoSourceSheet'
 import { signUp } from '@/lib/supabase/auth'
 import { getCreatorInfo, createStripeAccount } from '@/lib/supabase/creator'
 import { createClient } from '@/lib/supabase/client'
 import { useAppStore } from '@/lib/store/app-store'
 import { useTranslation, type TranslationKey } from '@/lib/i18n'
 import { LEGAL_VERSION } from '@/lib/legal/documents'
+
+// Slots that the photo-source sheet (camera/gallery) can fill.
+type PhotoTarget =
+  | 'profile'
+  | 'banner'
+  | 'selfie'
+  | 'docFront'
+  | 'docBack'
+  | 'additional-0'
+  | 'additional-1'
+  | 'additional-2'
 
 // ─── Currency helpers ────────────────────────────────────────────
 
@@ -223,17 +235,8 @@ export default function RegisterPage() {
   // Controla exibição do modal de e-mail já cadastrado
   const [showEmailExistsModal, setShowEmailExistsModal] = useState(false)
 
-  // Image refs
-  const profileImgRef = useRef<HTMLInputElement>(null)
-  const additionalImgRefs = [
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-  ]
-  const bannerImgRef = useRef<HTMLInputElement>(null)
-  const selfieImgRef = useRef<HTMLInputElement>(null)
-  const docFrontImgRef = useRef<HTMLInputElement>(null)
-  const docBackImgRef = useRef<HTMLInputElement>(null)
+  // Which image picker the photo-source sheet is targeting.
+  const [photoTarget, setPhotoTarget] = useState<PhotoTarget | null>(null)
 
   // File state — armazena os arquivos selecionados para que sobrevivam à troca de step
   const [profileFile, setProfileFile] = useState<File | null>(null)
@@ -269,47 +272,54 @@ export default function RegisterPage() {
 
   // ─── Image previews ───────────────────────────────────────────
 
-  const handleProfileImg = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleProfileImg = (file: File) => {
     setProfileFile(file)
     setProfilePreview(URL.createObjectURL(file))
   }
 
-  const handleAdditionalImg = (index: number, e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleAdditionalImg = (index: number, file: File) => {
     setAdditionalFiles((prev) => prev.map((f, i) => (i === index ? file : f)))
     setAdditionalPreviews((prev) => prev.map((p, i) => (i === index ? URL.createObjectURL(file) : p)))
   }
 
-  const handleBannerImg = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleBannerImg = (file: File) => {
     setBannerFile(file)
     setBannerPreview(URL.createObjectURL(file))
   }
 
-  const handleSelfieImg = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleSelfieImg = (file: File) => {
     setSelfieFile(file)
     setSelfiePreview(URL.createObjectURL(file))
   }
 
-  const handleDocFrontImg = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleDocFrontImg = (file: File) => {
     setDocFrontFile(file)
     setDocFrontPreview(URL.createObjectURL(file))
   }
 
-  const handleDocBackImg = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleDocBackImg = (file: File) => {
     setDocBackFile(file)
     setDocBackPreview(URL.createObjectURL(file))
   }
+
+  // Routes the picked file from the photo-source sheet to the right slot.
+  const handlePickPhoto = (files: File[]) => {
+    const file = files[0]
+    if (!file || photoTarget === null) return
+    switch (photoTarget) {
+      case 'profile': handleProfileImg(file); break
+      case 'banner': handleBannerImg(file); break
+      case 'selfie': handleSelfieImg(file); break
+      case 'docFront': handleDocFrontImg(file); break
+      case 'docBack': handleDocBackImg(file); break
+      case 'additional-0': handleAdditionalImg(0, file); break
+      case 'additional-1': handleAdditionalImg(1, file); break
+      case 'additional-2': handleAdditionalImg(2, file); break
+    }
+  }
+
+  // Front camera makes sense for the selfie and the main profile photo.
+  const sheetCapture = photoTarget === 'selfie' || photoTarget === 'profile' ? 'user' : 'environment'
 
   // ─── Step validation ──────────────────────────────────────────
 
@@ -675,12 +685,7 @@ export default function RegisterPage() {
             profilePreview={profilePreview}
             additionalPreviews={additionalPreviews}
             bannerPreview={bannerPreview}
-            profileImgRef={profileImgRef}
-            additionalImgRefs={additionalImgRefs}
-            bannerImgRef={bannerImgRef}
-            onProfileImg={handleProfileImg}
-            onAdditionalImg={handleAdditionalImg}
-            onBannerImg={handleBannerImg}
+            requestPhoto={setPhotoTarget}
             onOpenDicas={() => setDicasModalOpen(true)}
             t={t}
           />
@@ -694,12 +699,7 @@ export default function RegisterPage() {
             selfiePreview={selfiePreview}
             docFrontPreview={docFrontPreview}
             docBackPreview={docBackPreview}
-            selfieImgRef={selfieImgRef}
-            docFrontImgRef={docFrontImgRef}
-            docBackImgRef={docBackImgRef}
-            onSelfieImg={handleSelfieImg}
-            onDocFrontImg={handleDocFrontImg}
-            onDocBackImg={handleDocBackImg}
+            requestPhoto={setPhotoTarget}
             t={t}
           />
         )
@@ -809,6 +809,13 @@ export default function RegisterPage() {
       </form>
     </div>
     {dicasModalOpen && <DicasFotosModal onClose={() => setDicasModalOpen(false)} />}
+
+    <PhotoSourceSheet
+      open={photoTarget !== null}
+      onClose={() => setPhotoTarget(null)}
+      onPick={handlePickPhoto}
+      capture={sheetCapture}
+    />
 
     {/* Modal: e-mail já cadastrado */}
     {showEmailExistsModal && (
@@ -1202,18 +1209,12 @@ function ToggleRow({
 
 function Step3({
   profilePreview, additionalPreviews, bannerPreview,
-  profileImgRef, additionalImgRefs, bannerImgRef,
-  onProfileImg, onAdditionalImg, onBannerImg, onOpenDicas, t,
+  requestPhoto, onOpenDicas, t,
 }: {
   profilePreview: string | null
   additionalPreviews: (string | null)[]
   bannerPreview: string | null
-  profileImgRef: React.RefObject<HTMLInputElement | null>
-  additionalImgRefs: React.RefObject<HTMLInputElement | null>[]
-  bannerImgRef: React.RefObject<HTMLInputElement | null>
-  onProfileImg: (e: ChangeEvent<HTMLInputElement>) => void
-  onAdditionalImg: (index: number, e: ChangeEvent<HTMLInputElement>) => void
-  onBannerImg: (e: ChangeEvent<HTMLInputElement>) => void
+  requestPhoto: (target: PhotoTarget) => void
   onOpenDicas?: () => void
   t: TFn
 }) {
@@ -1233,15 +1234,8 @@ function Step3({
         </label>
         <ImageUploadBox
           preview={profilePreview}
-          onClick={() => profileImgRef.current?.click()}
+          onClick={() => requestPhoto('profile')}
           label={t('register.mainPhoto')}
-        />
-        <input
-          ref={profileImgRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={onProfileImg}
         />
       </div>
 
@@ -1251,20 +1245,13 @@ function Step3({
           {t('register.additionalPhotos')}
         </label>
         <div className="grid grid-cols-3 gap-3">
-          {additionalImgRefs.map((ref, i) => (
+          {additionalPreviews.map((preview, i) => (
             <div key={i}>
               <ImageUploadBox
-                preview={additionalPreviews[i]}
-                onClick={() => ref.current?.click()}
+                preview={preview}
+                onClick={() => requestPhoto(`additional-${i}` as PhotoTarget)}
                 label={`Foto ${i + 2}`}
                 compact
-              />
-              <input
-                ref={ref}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => onAdditionalImg(i, e)}
               />
             </div>
           ))}
@@ -1278,16 +1265,9 @@ function Step3({
         </label>
         <ImageUploadBox
           preview={bannerPreview}
-          onClick={() => bannerImgRef.current?.click()}
+          onClick={() => requestPhoto('banner')}
           label={t('register.coverPhoto')}
           banner
-        />
-        <input
-          ref={bannerImgRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={onBannerImg}
         />
       </div>
 
@@ -1347,8 +1327,7 @@ function ImageUploadBox({
 function Step4({
   formData, errors, update,
   selfiePreview, docFrontPreview, docBackPreview,
-  selfieImgRef, docFrontImgRef, docBackImgRef,
-  onSelfieImg, onDocFrontImg, onDocBackImg, t,
+  requestPhoto, t,
 }: {
   formData: FormData
   errors: Partial<Record<keyof FormData, string>>
@@ -1356,12 +1335,7 @@ function Step4({
   selfiePreview: string | null
   docFrontPreview: string | null
   docBackPreview: string | null
-  selfieImgRef: React.RefObject<HTMLInputElement | null>
-  docFrontImgRef: React.RefObject<HTMLInputElement | null>
-  docBackImgRef: React.RefObject<HTMLInputElement | null>
-  onSelfieImg: (e: ChangeEvent<HTMLInputElement>) => void
-  onDocFrontImg: (e: ChangeEvent<HTMLInputElement>) => void
-  onDocBackImg: (e: ChangeEvent<HTMLInputElement>) => void
+  requestPhoto: (target: PhotoTarget) => void
   t: TFn
 }) {
   const placeholder = formData.documentoTipo === 'Passaporte' ? 'AA1234567' : '000.000.000-00'
@@ -1404,15 +1378,8 @@ function Step4({
         </p>
         <ImageUploadBox
           preview={selfiePreview}
-          onClick={() => selfieImgRef.current?.click()}
+          onClick={() => requestPhoto('selfie')}
           label={t('register.selfiePhoto')}
-        />
-        <input
-          ref={selfieImgRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={onSelfieImg}
         />
       </div>
 
@@ -1431,16 +1398,9 @@ function Step4({
             </span>
             <ImageUploadBox
               preview={docFrontPreview}
-              onClick={() => docFrontImgRef.current?.click()}
+              onClick={() => requestPhoto('docFront')}
               label={t('register.docPhotoFront')}
               compact
-            />
-            <input
-              ref={docFrontImgRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={onDocFrontImg}
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -1449,16 +1409,9 @@ function Step4({
             </span>
             <ImageUploadBox
               preview={docBackPreview}
-              onClick={() => docBackImgRef.current?.click()}
+              onClick={() => requestPhoto('docBack')}
               label={t('register.docPhotoBack')}
               compact
-            />
-            <input
-              ref={docBackImgRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={onDocBackImg}
             />
           </div>
         </div>

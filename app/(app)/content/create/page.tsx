@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { useTranslation, getLocaleBcp47 } from '@/lib/i18n'
 import { useStripeGateState } from '@/components/stripe/StripeGateProvider'
 import { useStripeGate } from '@/lib/hooks/useStripeGate'
+import PhotoSourceSheet from '@/components/ui/PhotoSourceSheet'
 
 // ─── Currency helpers ──────────────────────────────────────────────
 
@@ -50,21 +51,20 @@ export default function ContentCreatePage() {
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
   const [videoFiles, setVideoFiles] = useState<File[]>([])
-  const coverInputRef = useRef<HTMLInputElement>(null)
-  const photoInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
+  // Which image picker the photo-source sheet is targeting.
+  const [photoTarget, setPhotoTarget] = useState<'cover' | 'photos' | null>(null)
 
-  const onCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (f) {
-      setCoverFile(f)
-      setCoverPreview(URL.createObjectURL(f))
+  const handlePickPhoto = (files: File[]) => {
+    if (photoTarget === 'cover') {
+      const f = files[0]
+      if (f) {
+        setCoverFile(f)
+        setCoverPreview(URL.createObjectURL(f))
+      }
+    } else if (photoTarget === 'photos') {
+      setPhotoFiles((prev) => [...prev, ...files])
     }
-  }
-  const onPhotosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : []
-    setPhotoFiles((prev) => [...prev, ...files])
-    e.target.value = ''
   }
   const onVideosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : []
@@ -159,10 +159,9 @@ export default function ContentCreatePage() {
         <label className="text-sm font-semibold">
           {tFn('content.coverImage')}
           <div className="mt-1 flex items-center gap-2">
-            <input ref={coverInputRef} type="file" accept="image/*" onChange={onCoverChange} className="sr-only" id="cover-upload" />
             <button
               type="button"
-              onClick={() => coverInputRef.current?.click()}
+              onClick={() => setPhotoTarget('cover')}
               className={slotCls}
             >
               {coverPreview ? (
@@ -180,8 +179,7 @@ export default function ContentCreatePage() {
         <label className="text-sm font-semibold">
           {tFn('register.additionalPhotos').split(' ')[0]}
           <div className="mt-1 flex flex-wrap gap-2 items-center">
-            <input ref={photoInputRef} type="file" accept="image/*" multiple onChange={onPhotosChange} className="sr-only" id="photos-upload" />
-            <button type="button" onClick={() => photoInputRef.current?.click()} className={slotCls}>
+            <button type="button" onClick={() => setPhotoTarget('photos')} className={slotCls}>
               +
             </button>
             {photoFiles.map((f, i) => (
@@ -285,6 +283,13 @@ export default function ContentCreatePage() {
           </p>
         )}
       </div>
+
+      <PhotoSourceSheet
+        open={photoTarget !== null}
+        onClose={() => setPhotoTarget(null)}
+        onPick={handlePickPhoto}
+        multiple={photoTarget === 'photos'}
+      />
     </div>
   )
 }

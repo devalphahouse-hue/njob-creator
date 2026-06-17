@@ -41,6 +41,11 @@ const en: Translations = {
     online: 'Online',
     offline: 'Offline',
     notifications: 'Notifications',
+    photoSource: {
+      title: 'Add photo',
+      takePhoto: 'Take photo',
+      chooseFromGallery: 'Choose from gallery',
+    },
   },
 
   modals: {

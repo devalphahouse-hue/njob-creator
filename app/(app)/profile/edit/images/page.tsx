@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useAppStore, useCreator } from '@/lib/store/app-store'
@@ -9,6 +9,7 @@ import { useTranslation } from '@/lib/i18n'
 import PageHeader from '@/components/ui/PageHeader'
 import Button from '@/components/ui/Button'
 import DicasFotosModal from '@/components/ui/DicasFotosModal'
+import PhotoSourceSheet from '@/components/ui/PhotoSourceSheet'
 import type { ImagesCreator } from '@/lib/types/database'
 import { ImagePlus, Trash2, Loader2 } from 'lucide-react'
 
@@ -98,13 +99,10 @@ export default function AlterarImagensPage() {
   const [loading, setLoading] = useState(false)
   const [dicasModalOpen, setDicasModalOpen] = useState(false)
 
-  const capaInputRef = useRef<HTMLInputElement>(null)
-  const comp1InputRef = useRef<HTMLInputElement>(null)
-  const comp2InputRef = useRef<HTMLInputElement>(null)
-  const comp3InputRef = useRef<HTMLInputElement>(null)
+  // Which slot the photo-source sheet is currently targeting.
+  const [photoTarget, setPhotoTarget] = useState<'capa' | 0 | 1 | 2 | null>(null)
 
-  const handleUploadCapa = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleUploadCapa = async (file: File) => {
     if (!file) return
     setUploadingCapa(true)
     try {
@@ -121,8 +119,7 @@ export default function AlterarImagensPage() {
     }
   }
 
-  const handleUploadComp = (index: 0 | 1 | 2) => async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleUploadComp = (index: 0 | 1 | 2) => async (file: File) => {
     if (!file) return
     const setters = [setComp1, setComp2, setComp3]
     const setUploadingIndex = (val: boolean) => {
@@ -144,6 +141,16 @@ export default function AlterarImagensPage() {
       toast.error(t('profile.errorUploadPhoto'))
     } finally {
       setUploadingIndex(false)
+    }
+  }
+
+  const handlePickPhoto = (files: File[]) => {
+    const file = files[0]
+    if (!file || photoTarget === null) return
+    if (photoTarget === 'capa') {
+      void handleUploadCapa(file)
+    } else {
+      void handleUploadComp(photoTarget)(file)
     }
   }
 
@@ -214,7 +221,7 @@ export default function AlterarImagensPage() {
               <ImageSlot
                 url={comp1}
                 uploading={uploadingComp[0]}
-                onSelect={() => comp1InputRef.current?.click()}
+                onSelect={() => setPhotoTarget(0)}
                 onRemove={comp1 ? () => setComp1(null) : undefined}
                 width="80px"
                 height="80px"
@@ -222,7 +229,7 @@ export default function AlterarImagensPage() {
               <ImageSlot
                 url={comp2}
                 uploading={uploadingComp[1]}
-                onSelect={() => comp2InputRef.current?.click()}
+                onSelect={() => setPhotoTarget(1)}
                 onRemove={comp2 ? () => setComp2(null) : undefined}
                 width="80px"
                 height="80px"
@@ -230,16 +237,12 @@ export default function AlterarImagensPage() {
               <ImageSlot
                 url={comp3}
                 uploading={uploadingComp[2]}
-                onSelect={() => comp3InputRef.current?.click()}
+                onSelect={() => setPhotoTarget(2)}
                 onRemove={comp3 ? () => setComp3(null) : undefined}
                 width="80px"
                 height="80px"
               />
             </div>
-
-            <input ref={comp1InputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadComp(0)} />
-            <input ref={comp2InputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadComp(1)} />
-            <input ref={comp3InputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadComp(2)} />
           </div>
 
           {/* Foto de capa */}
@@ -256,12 +259,11 @@ export default function AlterarImagensPage() {
             <ImageSlot
               url={capaUrl}
               uploading={uploadingCapa}
-              onSelect={() => capaInputRef.current?.click()}
+              onSelect={() => setPhotoTarget('capa')}
               onRemove={capaUrl ? () => setCapaUrl(null) : undefined}
               width="100%"
               height="120px"
             />
-            <input ref={capaInputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadCapa} />
           </div>
 
           <button
@@ -272,6 +274,12 @@ export default function AlterarImagensPage() {
             {t('register.photoTipsBtn')}
           </button>
           {dicasModalOpen && <DicasFotosModal onClose={() => setDicasModalOpen(false)} />}
+
+          <PhotoSourceSheet
+            open={photoTarget !== null}
+            onClose={() => setPhotoTarget(null)}
+            onPick={handlePickPhoto}
+          />
 
           <div className="pb-4">
             <Button

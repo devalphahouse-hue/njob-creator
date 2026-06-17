@@ -41,6 +41,11 @@ const es: Translations = {
     online: 'En línea',
     offline: 'Fuera de línea',
     notifications: 'Notificaciones',
+    photoSource: {
+      title: 'Agregar foto',
+      takePhoto: 'Tomar foto',
+      chooseFromGallery: 'Elegir de la galería',
+    },
   },
 
   modals: {

@@ -44,6 +44,11 @@ const pt = {
     online: 'Online',
     offline: 'Offline',
     notifications: 'Notificações',
+    photoSource: {
+      title: 'Adicionar foto',
+      takePhoto: 'Tirar foto',
+      chooseFromGallery: 'Escolher da galeria',
+    },
   },
 
   // ── Modais ───────────────────────────────────────────────────────────────
