@@ -6,6 +6,7 @@ import { useCreator } from '@/lib/store/app-store'
 import { useCreatorPresence } from '@/lib/hooks/useCreatorPresence'
 import { useIdleTimeout } from '@/lib/hooks/useIdleTimeout'
 import { useCreatorBusy } from '@/lib/hooks/useCreatorBusy'
+import { useUnreadMessagesRealtime } from '@/lib/hooks/useUnreadMessages'
 import { IncomingCallRequestModal } from '@/components/home/IncomingCallRequestModal'
 import { ActiveCallCTA } from '@/components/home/ActiveCallCTA'
 import { IDLE_TIMEOUT_MS } from '@/lib/constants/call-windows'
@@ -58,6 +59,9 @@ export default function CreatorPresenceShell() {
   }, [userId, isOnline, busy])
 
   useIdleTimeout(IDLE_TIMEOUT_MS, isOnline, handleIdle)
+
+  // Badge de mensagens não lidas no menu Chat — assina o Realtime uma única vez.
+  useUnreadMessagesRealtime()
 
   return (
     <>

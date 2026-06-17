@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/lib/types/database'
 import { useTranslation } from '@/lib/i18n'
@@ -122,6 +123,7 @@ export default function ChatConversationPage() {
   const router = useRouter()
   const supabase = createClient()
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [messages, setMessages] = useState<MessageRow[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
@@ -281,13 +283,15 @@ export default function ChatConversationPage() {
         .update({ last_read_at: new Date().toISOString() })
         .eq('conversation_id', id)
         .eq('profile_id', uid)
+      // Atualiza a lista + o badge de não lidas (prefixo vw_creator_conversations).
+      queryClient.invalidateQueries({ queryKey: ['vw_creator_conversations'] })
       if (!cancelled) {
         setLoading(false)
         scrollToBottom('auto')
       }
     })()
     return () => { cancelled = true }
-  }, [id, supabase, loadInitial, scrollToBottom])
+  }, [id, supabase, loadInitial, scrollToBottom, queryClient])
 
   useEffect(() => {
     if (!id) return
@@ -304,6 +308,18 @@ export default function ChatConversationPage() {
           void syncRecent().then(() => {
             if (stick) scrollToBottom()
           })
+          // Conversa aberta: a mensagem que chega já está sendo "lida" — marca
+          // last_read_at e atualiza a lista/badge para não contar como não lida.
+          if (raw?.sender_id && raw.sender_id !== userId && userId) {
+            void supabase
+              .from('conversation_participants')
+              .update({ last_read_at: new Date().toISOString() })
+              .eq('conversation_id', id)
+              .eq('profile_id', userId)
+              .then(() =>
+                queryClient.invalidateQueries({ queryKey: ['vw_creator_conversations'] }),
+              )
+          }
         },
       )
       .subscribe((status) => {
@@ -322,7 +338,7 @@ export default function ChatConversationPage() {
       supabase.removeChannel(channel)
       window.clearInterval(pollId)
     }
-  }, [id, supabase, syncRecent, scrollToBottom, isNearBottom, userId])
+  }, [id, supabase, syncRecent, scrollToBottom, isNearBottom, userId, queryClient])
 
   function handleInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
     setInput(e.target.value)

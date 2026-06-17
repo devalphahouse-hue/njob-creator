@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useIsGuest } from '@/lib/store/app-store'
 import { useTranslation } from '@/lib/i18n'
+import { useUnreadMessagesCount } from '@/lib/hooks/useUnreadMessages'
 import ComingSoonModal from '@/components/ui/ComingSoonModal'
 import GuestAuthModal from '@/components/ui/GuestAuthModal'
 
@@ -56,6 +57,7 @@ export default function Navbar() {
   const { t } = useTranslation()
   const pathname = usePathname()
   const isGuest = useIsGuest()
+  const unread = useUnreadMessagesCount()
 
   const mobileNav: NavItem[] = [
     { label: t('nav.home'), href: '/home', icon: <HomeIcon /> },
@@ -125,7 +127,14 @@ export default function Navbar() {
                 isActive ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted)]',
               ].join(' ')}
             >
-              {item.icon}
+              <span className="relative">
+                {item.icon}
+                {item.href === '/chat' && unread > 0 && (
+                  <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-primary)] text-white text-[10px] font-bold flex items-center justify-center leading-none border border-[var(--color-surface)]">
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                )}
+              </span>
               <span className="text-xs font-medium">{item.label}</span>
               {isActive && (
                 <div className="absolute bottom-0 h-0.5 w-8 rounded-full bg-[var(--color-primary)]" />

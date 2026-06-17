@@ -7,6 +7,7 @@ import { signOut } from '@/lib/supabase/auth'
 import { useRouter } from 'next/navigation'
 import { useAppStore, useIsGuest } from '@/lib/store/app-store'
 import { useTranslation } from '@/lib/i18n'
+import { useUnreadMessagesCount } from '@/lib/hooks/useUnreadMessages'
 import ComingSoonModal from '@/components/ui/ComingSoonModal'
 import GuestAuthModal from '@/components/ui/GuestAuthModal'
 
@@ -75,6 +76,7 @@ export default function Sidebar() {
   const router = useRouter()
   const isGuest = useIsGuest()
   const setGuest = useAppStore((s) => s.setGuest)
+  const unread = useUnreadMessagesCount()
 
   const navItems: NavItem[] = [
     { label: t('nav.home'), href: '/home', icon: <HomeIcon /> },
@@ -164,6 +166,11 @@ export default function Sidebar() {
             >
               {item.icon}
               {item.label}
+              {item.href === '/chat' && unread > 0 && (
+                <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--color-primary)] text-white text-[11px] font-bold flex items-center justify-center leading-none">
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              )}
             </Link>
           )
         })}
