@@ -8,9 +8,11 @@ import { useCreator } from '@/lib/store/app-store'
 import { useTranslation } from '@/lib/i18n'
 import { getPacksByCreator, type PackListItem } from '@/lib/api/content'
 import EmptyState from '@/components/ui/EmptyState'
-import { Filter, Plus } from 'lucide-react'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import { Filter, Plus, MoreVertical, Trash2 } from 'lucide-react'
 import { useStripeGateState } from '@/components/stripe/StripeGateProvider'
 import { useStripeGate } from '@/lib/hooks/useStripeGate'
+import { useDeletePack } from '@/lib/hooks/useDeletePack'
 
 interface AppliedFilters {
   hasPhoto: boolean | null
@@ -44,6 +46,11 @@ export default function ContentPage() {
   // Filtros temporários (estado do modal enquanto o usuário seleciona)
   const [draft, setDraft] = useState<AppliedFilters>(emptyFilters)
   const [filterModalOpen, setFilterModalOpen] = useState(false)
+
+  // Exclusão de pacote
+  const [menuFor, setMenuFor] = useState<string | null>(null)
+  const [confirmFor, setConfirmFor] = useState<PackListItem | null>(null)
+  const deleteMutation = useDeletePack()
 
   const { data: packs = [], isLoading } = useQuery({
     queryKey: [
@@ -221,28 +228,62 @@ export default function ContentPage() {
       ) : (
         <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
           {(packs as PackListItem[]).map((p) => (
-            <button
+            <div
               key={p.pack_id}
-              type="button"
-              onClick={() => router.push(`/content/${p.pack_id}/edit`)}
-              className="text-left p-0 border-none rounded-lg overflow-hidden bg-[var(--color-surface-2)] cursor-pointer shadow-sm"
+              className="relative rounded-lg overflow-hidden bg-[var(--color-surface-2)] shadow-sm"
             >
-              <div className="relative bg-[var(--color-border)] aspect-square">
-                {p.cover_image_url ? (
-                  <img src={p.cover_image_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[var(--color-muted)] text-xs">
-                    {t('content.noCover')}
-                  </div>
-                )}
-              </div>
-              <div className="p-2">
-                <div className="font-semibold text-sm mb-1">{p.title}</div>
-                <div className="text-xs text-[var(--color-muted)]">
-                  R$ {Number(p.price).toFixed(2)} · {p.photo_count ?? 0} {t('content.photos')} · {p.video_count ?? 0} {t('content.videos')}
+              <button
+                type="button"
+                onClick={() => router.push(`/content/${p.pack_id}/edit`)}
+                className="block w-full text-left p-0 border-none bg-transparent cursor-pointer"
+              >
+                <div className="relative bg-[var(--color-border)] aspect-square">
+                  {p.cover_image_url ? (
+                    <img src={p.cover_image_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[var(--color-muted)] text-xs">
+                      {t('content.noCover')}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </button>
+                <div className="p-2">
+                  <div className="font-semibold text-sm mb-1">{p.title}</div>
+                  <div className="text-xs text-[var(--color-muted)]">
+                    R$ {Number(p.price).toFixed(2)} · {p.photo_count ?? 0} {t('content.photos')} · {p.video_count ?? 0} {t('content.videos')}
+                  </div>
+                </div>
+              </button>
+
+              {/* Menu ⋯ (irmão do botão de navegação, não aninhado) */}
+              <button
+                type="button"
+                onClick={() => setMenuFor((cur) => (cur === p.pack_id ? null : p.pack_id))}
+                aria-label={t('content.deleteContent')}
+                className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full border-none bg-black/55 text-white flex items-center justify-center cursor-pointer hover:bg-black/70 transition-colors"
+              >
+                <MoreVertical size={18} strokeWidth={2} />
+              </button>
+
+              {menuFor === p.pack_id && (
+                <>
+                  {/* backdrop invisível para fechar ao clicar fora */}
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
+                  <div className="absolute top-11 right-2 z-20 min-w-[140px] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuFor(null)
+                        setConfirmFor(p)
+                      }}
+                      className="w-full px-3 py-2.5 border-none bg-transparent text-left text-sm text-red-500 cursor-pointer inline-flex items-center gap-2 hover:bg-[var(--color-surface-2)] transition-colors"
+                    >
+                      <Trash2 size={16} strokeWidth={2} />
+                      {t('content.deleteContent')}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -263,6 +304,19 @@ export default function ContentPage() {
           <Plus size={24} strokeWidth={2.5} />
         </button>
       </div>
+
+      <ConfirmDialog
+        open={confirmFor !== null}
+        destructive
+        title={t('content.deleteContent')}
+        message={`${t('content.deleteConfirm')} ${t('content.deleteKeepsAccess')}`}
+        confirmLabel={t('common.delete')}
+        onConfirm={() => {
+          if (confirmFor) deleteMutation.mutate(confirmFor.pack_id)
+          setConfirmFor(null)
+        }}
+        onCancel={() => setConfirmFor(null)}
+      />
     </div>
   )
 }

@@ -401,6 +401,8 @@ const en: Translations = {
     saveChanges: 'Save changes',
     deleteContent: 'Delete content',
     deleteConfirm: 'Are you sure you want to delete this content?',
+    deleteKeepsAccess: 'Anyone who already purchased will keep access to the content.',
+    deleting: 'Deleting...',
     published: 'Published',
     draft: 'Draft',
     noContent: 'No content published yet.',

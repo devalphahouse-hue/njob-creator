@@ -401,6 +401,8 @@ const es: Translations = {
     saveChanges: 'Guardar cambios',
     deleteContent: 'Eliminar contenido',
     deleteConfirm: '¿Estás seguro de que deseas eliminar este contenido?',
+    deleteKeepsAccess: 'Quien ya compró seguirá teniendo acceso al contenido.',
+    deleting: 'Eliminando...',
     published: 'Publicado',
     draft: 'Borrador',
     noContent: 'Aún no hay contenido publicado.',

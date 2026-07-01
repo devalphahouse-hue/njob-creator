@@ -46,13 +46,13 @@ export default function PhotoSourceSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 sm:items-center sm:p-6"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="w-full max-w-md rounded-t-2xl p-6 pb-10 bg-[var(--color-surface)]"
+        className="w-full max-w-md rounded-t-2xl p-6 pb-10 bg-[var(--color-surface)] sm:rounded-2xl sm:pb-6 sm:border sm:border-[var(--color-border)] sm:shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6">

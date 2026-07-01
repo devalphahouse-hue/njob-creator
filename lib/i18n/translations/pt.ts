@@ -433,6 +433,8 @@ const pt = {
     saveChanges: 'Salvar alterações',
     deleteContent: 'Excluir conteúdo',
     deleteConfirm: 'Tem certeza que deseja excluir este conteúdo?',
+    deleteKeepsAccess: 'Quem já comprou continuará com acesso ao conteúdo.',
+    deleting: 'Excluindo...',
     published: 'Publicado',
     draft: 'Rascunho',
     noContent: 'Nenhum conteúdo publicado ainda.',

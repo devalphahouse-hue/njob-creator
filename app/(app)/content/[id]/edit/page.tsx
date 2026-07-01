@@ -5,7 +5,10 @@ import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getPackWithItems } from '@/lib/api/content'
 import PackVideoPlayer from '@/components/content/PackVideoPlayer'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import { useDeletePack } from '@/lib/hooks/useDeletePack'
 import { toast } from 'sonner'
+import { Trash2 } from 'lucide-react'
 import { useTranslation, getLocaleBcp47 } from '@/lib/i18n'
 
 type PackItem = { url: string; type: 'photo' | 'video' }
@@ -31,6 +34,9 @@ export default function ContentViewPage() {
   const [existingItems, setExistingItems] = useState<PackItem[]>([])
   const [fetching, setFetching] = useState(true)
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const deleteMutation = useDeletePack(() => router.push('/content'))
 
   useEffect(() => {
     if (!id) return
@@ -125,8 +131,8 @@ export default function ContentViewPage() {
           <p className="text-sm m-0 text-[var(--color-muted)]">R$ {priceDisplay}</p>
         </div>
 
-        {/* Botao voltar */}
-        <div className="mt-2">
+        {/* Acoes: voltar + excluir */}
+        <div className="mt-2 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={() => router.back()}
@@ -134,8 +140,30 @@ export default function ContentViewPage() {
           >
             {t('common.back')}
           </button>
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            disabled={deleteMutation.isPending}
+            className="px-5 py-2.5 rounded-lg border-none bg-red-500 hover:bg-red-600 text-white cursor-pointer text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          >
+            <Trash2 size={16} strokeWidth={2} />
+            {deleteMutation.isPending ? t('content.deleting') : t('content.deleteContent')}
+          </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        destructive
+        title={t('content.deleteContent')}
+        message={`${t('content.deleteConfirm')} ${t('content.deleteKeepsAccess')}`}
+        confirmLabel={t('common.delete')}
+        onConfirm={() => {
+          setConfirmDelete(false)
+          deleteMutation.mutate(id)
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
 
       {videoModalUrl && <PackVideoPlayer src={videoModalUrl} onClose={() => setVideoModalUrl(null)} />}
     </div>
