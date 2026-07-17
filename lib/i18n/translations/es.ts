@@ -331,6 +331,7 @@ const es: Translations = {
       success: 'Cuenta programada para eliminación. Inicia sesión en 30 días para cancelar.',
       error: 'No se pudo procesar la eliminación. Inténtalo de nuevo.',
       canceled: '¡Eliminación de cuenta cancelada. Bienvenido(a) de vuelta!',
+      cooldown: 'Reactivaste tu cuenta recientemente. Podrás solicitar la eliminación de nuevo en {days} día(s).',
     },
     openingPanel: 'Abriendo panel...',
     stripeIncomplete: 'Debes completar tu registro en Stripe primero.',

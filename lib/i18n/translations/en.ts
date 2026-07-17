@@ -331,6 +331,7 @@ const en: Translations = {
       success: 'Account scheduled for deletion. Log in within 30 days to cancel.',
       error: "We couldn't process the deletion. Please try again.",
       canceled: 'Account deletion canceled. Welcome back!',
+      cooldown: 'You recently reactivated your account. You can request deletion again in {days} day(s).',
     },
     openingPanel: 'Opening panel...',
     stripeIncomplete: 'You need to complete your Stripe registration first.',

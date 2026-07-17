@@ -361,6 +361,7 @@ const pt = {
       success: 'Conta agendada para exclusão. Faça login em até 30 dias para cancelar.',
       error: 'Não foi possível processar a exclusão. Tente novamente.',
       canceled: 'Exclusão de conta cancelada. Bem-vindo(a) de volta!',
+      cooldown: 'Você reativou a conta recentemente. Só será possível solicitar a exclusão novamente em {days} dia(s).',
     },
     openingPanel: 'Abrindo painel...',
     stripeIncomplete: 'Você precisa completar o cadastro no Stripe primeiro.',

@@ -150,7 +150,14 @@ export default function ProfilePage() {
       await supabase.auth.signOut()
       router.push('/login')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('profile.deleteAccount.error'))
+      const message = err instanceof Error ? err.message : ''
+      // Cooldown de 7 dias após ter reativado a conta por login.
+      const cooldown = message.match(/^deletion_cooldown_active:(\d+)/)
+      if (cooldown) {
+        toast.error(t('profile.deleteAccount.cooldown', { days: Number(cooldown[1]) }))
+        return
+      }
+      toast.error(message || t('profile.deleteAccount.error'))
     } finally {
       setDeleting(false)
     }
