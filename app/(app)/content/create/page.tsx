@@ -8,6 +8,7 @@ import { createPackWithItems, createStripePack } from '@/lib/api/content'
 import { uploadPackCover, uploadPackItem } from '@/lib/storage/packs'
 import { toast } from 'sonner'
 import { useTranslation, getLocaleBcp47 } from '@/lib/i18n'
+import { MIN_PRICE_BRL } from '@/lib/constants/pricing'
 import { useStripeGateState } from '@/components/stripe/StripeGateProvider'
 import { useStripeGate } from '@/lib/hooks/useStripeGate'
 import PhotoSourceSheet from '@/components/ui/PhotoSourceSheet'
@@ -83,7 +84,7 @@ export default function ContentCreatePage() {
       toast.error(tFn('content.titleRequired'))
       return
     }
-    if (p <= 0) {
+    if (p < MIN_PRICE_BRL) {
       setPriceError(true)
       toast.error(tFn('register.minValue'))
       return

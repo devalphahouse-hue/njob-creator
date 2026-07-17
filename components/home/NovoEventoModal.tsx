@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useTranslation, getLocaleBcp47 } from '@/lib/i18n'
 import { getTodayLocalYYYYMMDD } from '@/lib/utils/datetime'
+import { MIN_PRICE_BRL } from '@/lib/constants/pricing'
 
 // Opcoes de duracao — espelham FFAppConstants.DURACAO do Flutter
 type DuracaoOption = '1hora' | '30min'
@@ -199,7 +200,7 @@ export default function NovoEventoModal({ isOpen, onClose, onRefresh, initialDat
 
   const handleValorBlur = () => {
     const num = parseCurrencyBRL(valorRaw)
-    if (valorRaw && num <= 0) {
+    if (valorRaw && num < MIN_PRICE_BRL) {
       setErroValor(true)
     }
   }
@@ -246,7 +247,7 @@ export default function NovoEventoModal({ isOpen, onClose, onRefresh, initialDat
     if (!duracao) { setErroDuracao(true); hasError = true }
 
     const valorNum = parseCurrencyBRL(valorRaw)
-    if (valorNum <= 0) { setErroValor(true); hasError = true }
+    if (valorNum < MIN_PRICE_BRL) { setErroValor(true); hasError = true }
 
     if (!dataSelecionada) { setErroData(true); hasError = true }
 

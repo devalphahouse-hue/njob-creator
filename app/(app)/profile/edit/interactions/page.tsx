@@ -9,6 +9,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { useTranslation, getLocaleBcp47 } from '@/lib/i18n'
+import { MIN_PRICE_BRL } from '@/lib/constants/pricing'
 import { useStripeGate } from '@/lib/hooks/useStripeGate'
 
 // ─── Toggle ──────────────────────────────────────────────────────────────────
@@ -181,8 +182,8 @@ export default function AlterarInteracoesPage() {
       const v30 = parseCurrency(valor30min)
       const v1h = parseCurrency(valor1hora)
       const newErrors: { valor30min?: string; valor1hora?: string } = {}
-      if (v30 <= 0) newErrors.valor30min = t('register.minValue')
-      if (v1h <= 0) newErrors.valor1hora = t('register.minValue')
+      if (v30 < MIN_PRICE_BRL) newErrors.valor30min = t('register.minValue')
+      if (v1h < MIN_PRICE_BRL) newErrors.valor1hora = t('register.minValue')
       setErrors(newErrors)
       if (Object.keys(newErrors).length > 0) return
     } else {

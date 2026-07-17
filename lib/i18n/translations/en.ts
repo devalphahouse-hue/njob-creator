@@ -184,7 +184,7 @@ const en: Translations = {
     doesVideoCall: 'Do individual video calls?',
     value30min: 'Price for 30 minutes (R$)',
     value1hour: 'Price for 1 hour (R$)',
-    minValue: 'Enter a valid amount',
+    minValue: 'The minimum amount is R$ 10.00',
     doesMeeting: 'Do in-person meetings?',
     addPhotosDesc: 'Add your profile photos. The main photo is required.',
     viewPhotoTips: 'View photo tips',

@@ -184,7 +184,7 @@ const es: Translations = {
     doesVideoCall: '¿Haces videollamadas individuales?',
     value30min: 'Precio por 30 minutos (R$)',
     value1hour: 'Precio por 1 hora (R$)',
-    minValue: 'Ingresa un valor válido',
+    minValue: 'El valor mínimo es R$ 10,00',
     doesMeeting: '¿Haces encuentros presenciales?',
     addPhotosDesc: 'Agrega tus fotos de perfil. La foto principal es obligatoria.',
     viewPhotoTips: 'Ver consejos de fotos',

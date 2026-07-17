@@ -203,7 +203,7 @@ const pt = {
     doesVideoCall: 'Faz vídeochamada individual?',
     value30min: 'Valor por 30 minutos (R$)',
     value1hour: 'Valor por 1 hora (R$)',
-    minValue: 'Informe um valor válido',
+    minValue: 'O valor mínimo é R$ 10,00',
     doesMeeting: 'Faz encontro presencial?',
     // Step 3 — Photos
     addPhotosDesc: 'Adicione suas fotos de perfil. A foto principal é obrigatória.',

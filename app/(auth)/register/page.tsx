@@ -14,6 +14,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import DicasFotosModal from '@/components/ui/DicasFotosModal'
 import PhotoSourceSheet from '@/components/ui/PhotoSourceSheet'
 import { signUp } from '@/lib/supabase/auth'
+import { MIN_PRICE_BRL } from '@/lib/constants/pricing'
 import { getCreatorInfo, createStripeAccount } from '@/lib/supabase/creator'
 import { createClient } from '@/lib/supabase/client'
 import { useAppStore } from '@/lib/store/app-store'
@@ -346,8 +347,8 @@ export default function RegisterPage() {
       if (formData.fazVideochamada) {
         const v30 = parseCurrency(formData.valor30min)
         const v1h = parseCurrency(formData.valor1hora)
-        if (v30 <= 0) newErrors.valor30min = t('register.minValue')
-        if (v1h <= 0) newErrors.valor1hora = t('register.minValue')
+        if (v30 < MIN_PRICE_BRL) newErrors.valor30min = t('register.minValue')
+        if (v1h < MIN_PRICE_BRL) newErrors.valor1hora = t('register.minValue')
       }
     }
 
