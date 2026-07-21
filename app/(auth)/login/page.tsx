@@ -11,6 +11,7 @@ import PasswordInput from '@/components/ui/PasswordInput'
 import { signIn, signOut } from '@/lib/supabase/auth'
 import { checkCreatorPayoutStatus, getCreatorInfo } from '@/lib/supabase/creator'
 import { createClient } from '@/lib/supabase/client'
+import { cancelPendingDeletionOnLogin } from '@/lib/supabase/account-deletion'
 import { useAppStore, useLogin } from '@/lib/store/app-store'
 import { useTranslation } from '@/lib/i18n'
 
@@ -46,6 +47,21 @@ export default function LoginPage() {
     useAppStore.getState().setGuest(false)
 
     const supabase = createClient()
+
+    // Login explícito é o ÚNICO gatilho que desfaz uma exclusão agendada — por
+    // isso vive aqui e não na montagem do app. Não bloqueia o resto do gate:
+    // se falhar, o usuário é avisado e pode logar de novo.
+    await cancelPendingDeletionOnLogin(supabase, {
+      onCanceled: (days) =>
+        toast.success(
+          days !== null
+            ? t('profile.deleteAccount.canceledWithCooldown', { days })
+            : t('profile.deleteAccount.canceled'),
+          { duration: 8000 },
+        ),
+      onFailed: () => toast.error(t('profile.deleteAccount.reactivateFailed'), { duration: 10000 }),
+    })
+
     // No login, o creator SEMPRE entra no app (/home), independente do estado do
     // Stripe. A /stripe-setup ficou só para o primeiro cadastro (no registro);
     // dentro do app, o status/banner/travas do Stripe cuidam do resto.

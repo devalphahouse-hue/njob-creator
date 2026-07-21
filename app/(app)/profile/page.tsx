@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n'
 import { User, ChevronRight, Info, Trash2, LogOut, DollarSign, Loader2 } from 'lucide-react'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import { getErrorMessage, parseDeletionCooldown, daysUntil } from '@/lib/utils/errors'
 
 // ─── Menu Item ────────────────────────────────────────────────────────────────
 
@@ -21,22 +22,49 @@ interface MenuItemProps {
   onClick?: () => void
   danger?: boolean
   loading?: boolean
+  /** Bloqueia a ação e apaga o item — usado no cooldown de exclusão. */
+  disabled?: boolean
+  /** Linha de apoio abaixo do label, explicando por que o item está bloqueado. */
+  hint?: string
 }
 
-function MenuItem({ icon, label, href, onClick, danger = false, loading = false }: MenuItemProps) {
+function MenuItem({
+  icon,
+  label,
+  href,
+  onClick,
+  danger = false,
+  loading = false,
+  disabled = false,
+  hint,
+}: MenuItemProps) {
   const color = danger ? 'var(--color-error)' : 'var(--color-primary)'
   const textColor = danger ? 'var(--color-error)' : 'var(--color-foreground)'
+  const inert = loading || disabled
 
   const content = (
     <div
       className={[
-        'flex items-center gap-3 py-3 px-1 transition-colors cursor-pointer hover:bg-surface rounded-lg min-h-[44px]',
-        loading ? 'opacity-60 pointer-events-none' : 'opacity-100 pointer-events-auto',
+        'flex items-center gap-3 py-3 px-1 transition-colors rounded-lg min-h-[44px]',
+        inert
+          ? 'opacity-50 pointer-events-none cursor-default'
+          : 'opacity-100 pointer-events-auto cursor-pointer hover:bg-surface',
       ].join(' ')}
+      aria-disabled={inert}
     >
-      <span style={{ color }}>{icon}</span> {/* dynamic value - cannot be Tailwind */}
-      <span className="flex-1 text-sm" style={{ color: textColor }}> {/* dynamic value - cannot be Tailwind */}
-        {label}
+      <span style={{ color: disabled ? 'var(--color-muted)' : color }}> {/* dynamic value - cannot be Tailwind */}
+        {icon}
+      </span>
+      <span className="flex-1 min-w-0">
+        <span
+          className="block text-sm"
+          style={{ color: disabled ? 'var(--color-muted)' : textColor }} /* dynamic value - cannot be Tailwind */
+        >
+          {label}
+        </span>
+        {hint ? (
+          <span className="block text-xs mt-0.5 text-[var(--color-muted)]">{hint}</span>
+        ) : null}
       </span>
       {loading ? (
         <Loader2 size={18} className="animate-spin text-[var(--color-primary)]" />
@@ -48,11 +76,11 @@ function MenuItem({ icon, label, href, onClick, danger = false, loading = false 
     </div>
   )
 
-  if (href) {
+  if (href && !disabled) {
     return <Link href={href}>{content}</Link>
   }
 
-  return <div onClick={onClick}>{content}</div>
+  return <div onClick={inert ? undefined : onClick}>{content}</div>
 }
 
 // ─── Divider ─────────────────────────────────────────────────────────────────
@@ -84,6 +112,27 @@ export default function ProfilePage() {
     },
     enabled: !!creator,
   })
+
+  // Cooldown de exclusão: ao reativar a conta por login, fn_cancel_account_deletion
+  // carimba deletion_cooldown_until = now() + 7 dias. Lemos aqui para bloquear o
+  // item do menu ANTES de o usuário confirmar — antes, ele só descobria o bloqueio
+  // depois de confirmar na modal, e o erro parecia falha do sistema.
+  const { data: cooldownUntil } = useQuery({
+    queryKey: ['profiles', 'deletion_cooldown_until'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.id) return null
+      const { data } = await supabase
+        .from('profiles')
+        .select('deletion_cooldown_until')
+        .eq('id', user.id)
+        .maybeSingle()
+      return data?.deletion_cooldown_until ?? null
+    },
+  })
+
+  const cooldownDays = daysUntil(cooldownUntil)
 
   const handleFinanceiro = async () => {
     setFinanceiroLoading(true)
@@ -150,11 +199,13 @@ export default function ProfilePage() {
       await supabase.auth.signOut()
       router.push('/login')
     } catch (err) {
-      const message = err instanceof Error ? err.message : ''
-      // Cooldown de 7 dias após ter reativado a conta por login.
-      const cooldown = message.match(/^deletion_cooldown_active:(\d+)/)
-      if (cooldown) {
-        toast.error(t('profile.deleteAccount.cooldown', { days: Number(cooldown[1]) }))
+      const message = getErrorMessage(err)
+      // Cooldown de 7 dias após ter reativado a conta por login. Rede de segurança:
+      // o menu já bloqueia esse caso, mas o valor pode ter mudado desde o load.
+      const cooldown = parseDeletionCooldown(message)
+      if (cooldown !== null) {
+        setDeleteOpen(false)
+        toast.error(t('profile.deleteAccount.cooldown', { days: cooldown }))
         return
       }
       toast.error(message || t('profile.deleteAccount.error'))
@@ -236,8 +287,14 @@ export default function ProfilePage() {
         <Divider />
         <MenuItem
           icon={<Trash2 size={20} strokeWidth={2} />}
-          label={t('profile.deleteAccount.menuLabel')}
+          label={
+            cooldownDays !== null
+              ? t('profile.deleteAccount.cooldownMenuLabel', { days: cooldownDays })
+              : t('profile.deleteAccount.menuLabel')
+          }
+          hint={cooldownDays !== null ? t('profile.deleteAccount.cooldownHint') : undefined}
           onClick={() => setDeleteOpen(true)}
+          disabled={cooldownDays !== null}
           danger
         />
         <Divider />

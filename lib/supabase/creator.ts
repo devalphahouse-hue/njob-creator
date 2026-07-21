@@ -203,7 +203,7 @@ export async function getCreatorInfo(
     // tabela profiles em paralelo e mescla depois.
     const profileLivePromise = supabase
       .from('profiles')
-      .select('is_available_for_calls, last_seen_at')
+      .select('is_available_for_calls, last_seen_at, cep, city_ibge_code')
       .eq('id', profileId)
       .maybeSingle()
 
@@ -238,6 +238,8 @@ export async function getCreatorInfo(
       role: (profileRow.role as CreatorData['profile']['role']) ?? 'creator',
       is_active: profileRow.is_active !== false,
       is_available_for_calls: Boolean(profileRow.is_available_for_calls),
+      cep: (profileRow.cep as string | null) ?? null,
+      city_ibge_code: (profileRow.city_ibge_code as number | null) ?? null,
       last_seen_at: (profileRow.last_seen_at as string | null) ?? null,
       created_at: (profileRow.created_at as string) ?? '',
       updated_at: (profileRow.updated_at as string) ?? '',
@@ -313,7 +315,12 @@ function normalizeCreatorData(raw: Record<string, unknown>): CreatorData {
  */
 function mergeCreatorLiveState(
   base: CreatorData,
-  live: { is_available_for_calls?: boolean | null; last_seen_at?: string | null } | null,
+  live: {
+    is_available_for_calls?: boolean | null
+    last_seen_at?: string | null
+    cep?: string | null
+    city_ibge_code?: number | null
+  } | null,
 ): CreatorData {
   if (!live) return base
   return {
@@ -326,6 +333,10 @@ function mergeCreatorLiveState(
           : base.profile.is_available_for_calls,
       last_seen_at:
         live.last_seen_at !== undefined ? live.last_seen_at : base.profile.last_seen_at,
+      // get_profile_info é legado e não devolve a localização; vem daqui.
+      cep: live.cep !== undefined ? live.cep : base.profile.cep,
+      city_ibge_code:
+        live.city_ibge_code !== undefined ? live.city_ibge_code : base.profile.city_ibge_code,
     },
   }
 }

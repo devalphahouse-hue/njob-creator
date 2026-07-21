@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      cities: {
+        Row: {
+          ibge_code: number
+          name: string
+          uf: string
+          name_normalized: string
+          lat: number
+          lng: number
+        }
+        Insert: {
+          ibge_code: number
+          name: string
+          uf: string
+          name_normalized: string
+          lat: number
+          lng: number
+        }
+        Update: {
+          ibge_code?: number
+          name?: string
+          uf?: string
+          name_normalized?: string
+          lat?: number
+          lng?: number
+        }
+        Relationships: []
+      }
       content_likes: {
         Row: {
           client_id: string
@@ -1518,6 +1545,9 @@ export type Database = {
           whatsapp: string | null
           deletion_requested_at: string | null
           deleted_at: string | null
+          deletion_cooldown_until: string | null
+          cep: string | null
+          city_ibge_code: number | null
         }
         Insert: {
           aprove?: string | null
@@ -1535,6 +1565,9 @@ export type Database = {
           whatsapp?: string | null
           deletion_requested_at?: string | null
           deleted_at?: string | null
+          deletion_cooldown_until?: string | null
+          cep?: string | null
+          city_ibge_code?: number | null
         }
         Update: {
           aprove?: string | null
@@ -1552,6 +1585,9 @@ export type Database = {
           whatsapp?: string | null
           deletion_requested_at?: string | null
           deleted_at?: string | null
+          deletion_cooldown_until?: string | null
+          cep?: string | null
+          city_ibge_code?: number | null
         }
         Relationships: []
       }
@@ -2134,6 +2170,9 @@ export interface ProfileCreator {
   created_at: string
   updated_at: string
   whatsapp: string
+  /** CEP (8 dígitos) — origem da localização usada no filtro por distância. */
+  cep?: string | null
+  city_ibge_code?: number | null
 }
 
 export interface CreatorDescription {

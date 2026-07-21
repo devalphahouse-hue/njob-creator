@@ -17,6 +17,7 @@ import { signUp } from '@/lib/supabase/auth'
 import { MIN_PRICE_BRL } from '@/lib/constants/pricing'
 import { getCreatorInfo, createStripeAccount } from '@/lib/supabase/creator'
 import { createClient } from '@/lib/supabase/client'
+import { resolveCep, isCompleteCep, sanitizeCep } from '@/lib/utils/cep'
 import { useAppStore } from '@/lib/store/app-store'
 import { useTranslation, type TranslationKey } from '@/lib/i18n'
 import { LEGAL_VERSION } from '@/lib/legal/documents'
@@ -449,8 +450,21 @@ export default function RegisterPage() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
     const usernameSlug = baseSlug ? `${baseSlug}-${userId.slice(0, 6)}` : userId.slice(0, 12)
+    // Localização: o CEP já foi digitado no step 0 para preencher a cidade.
+    // Resolvemos o município aqui para alimentar o filtro por distância do app
+    // cliente. Falha aqui NÃO bloqueia o cadastro — o creator só fica de fora do
+    // filtro por km até preencher a localização no perfil.
+    let cityIbgeCode: number | null = null
+    if (isCompleteCep(formData.cep)) {
+      const geo = await resolveCep(supabase, formData.cep)
+      if (geo.ok) cityIbgeCode = geo.data.ibgeCode
+      else console.warn('[register] nao foi possivel resolver o CEP:', geo.error)
+    }
+
     const { error: profileError } = await supabase.from('profiles').upsert({
       id: userId,
+      cep: isCompleteCep(formData.cep) ? sanitizeCep(formData.cep) : null,
+      city_ibge_code: cityIbgeCode,
       full_name: formData.nome,
       username: usernameSlug,
       role: 'creator' as const,

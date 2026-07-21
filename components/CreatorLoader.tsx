@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { getCreatorInfo } from '@/lib/supabase/creator'
 import { useAppStore } from '@/lib/store/app-store'
-import { useTranslation } from '@/lib/i18n'
 
 const MAX_RETRIES = 3
 
@@ -23,29 +22,12 @@ export default function CreatorLoader() {
   const isGuest = useAppStore((s) => s.isGuest)
   const setCreator = useAppStore((s) => s.setCreator)
   const loadingRef = useRef(false)
-  const deletionCheckedRef = useRef(false)
-  const { t } = useTranslation()
 
-  // Cancelamento automático: se a conta está pendente de exclusão, o login
-  // dentro dos 30 dias reativa a conta. Roda uma vez por sessão do app.
-  useEffect(() => {
-    if (isGuest || deletionCheckedRef.current) return
-    deletionCheckedRef.current = true
-    const supabase = createClient()
-    ;(async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user?.id) { deletionCheckedRef.current = false; return }
-      const { data } = await supabase
-        .from('profiles')
-        .select('deletion_requested_at, deleted_at')
-        .eq('id', user.id)
-        .maybeSingle()
-      if (data?.deletion_requested_at && !data.deleted_at) {
-        const { error } = await supabase.rpc('fn_cancel_account_deletion')
-        if (!error) toast.success(t('profile.deleteAccount.canceled'))
-      }
-    })().catch(() => { /* não crítico */ })
-  }, [isGuest, t])
+  // NOTA: o cancelamento de exclusão pendente NÃO mora mais aqui. Rodando na
+  // montagem, qualquer abertura do app com sessão válida desfazia a exclusão —
+  // inclusive a partir de um segundo dispositivo ainda logado. Agora só um login
+  // explícito cancela: ver cancelPendingDeletionOnLogin em
+  // @/lib/supabase/account-deletion, chamado por app/(auth)/login/page.tsx.
 
   // Carregamento inicial do CreatorData — sempre que há sessão (independe do Stripe).
   useEffect(() => {

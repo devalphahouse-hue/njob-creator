@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { useAppStore, useCreator } from '@/lib/store/app-store'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/ui/PageHeader'
+import { formatCep } from '@/lib/utils/cep'
 import { useTranslation, getLocaleBcp47 } from '@/lib/i18n'
 import { ChevronRight, Pencil, User, X } from 'lucide-react'
 
@@ -263,6 +264,13 @@ export default function InformacoesPessoaisPage() {
               <InfoRow label={t('profile.name')} value={profile.full_name} href="/profile/edit/name" navigable />
               <Divider />
               <InfoRow label={t('profile.language')} value={getLanguageLabel(locale)} href="/profile/edit/language" navigable />
+              <Divider />
+              <InfoRow
+                label={t('profile.location.title')}
+                value={profile.cep ? formatCep(profile.cep) : t('profile.location.empty')}
+                href="/profile/edit/location"
+                navigable
+              />
               <Divider />
               <InfoRow label={t('profile.birthDate')} value={formatDate(creator_description?.date_birth, getLocaleBcp47(locale))} />
             </div>
